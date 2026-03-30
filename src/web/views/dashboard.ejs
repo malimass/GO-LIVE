@@ -80,6 +80,12 @@
             <div class="config-fields">
               <input type="text" value="<%= ig.name %>" placeholder="Nome (es. Account 1)" class="ig-name">
               <input type="text" value="<%= ig.username %>" placeholder="Username" class="ig-username">
+              <input type="text" value="<%= ig.live_title || 'LIVE' %>" placeholder="Titolo Live" class="ig-title">
+              <select class="ig-audience">
+                <option value="public" <%= (ig.audience || 'public') === 'public' ? 'selected' : '' %>>Tutti</option>
+                <option value="practice" <%= (ig.audience) === 'practice' ? 'selected' : '' %>>Diretta di prova</option>
+                <option value="close_friends" <%= (ig.audience) === 'close_friends' ? 'selected' : '' %>>Amici stretti</option>
+              </select>
               <span class="cookie-status <%= ig.hasCookies ? 'cookie-ok' : 'cookie-missing' %>">
                 <%= ig.hasCookies ? 'Cookie OK' : 'No cookie' %>
                 <% if (ig.last_cookie_update) { %><small>(<%= ig.last_cookie_update %>)</small><% } %>

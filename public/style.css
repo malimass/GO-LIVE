@@ -360,9 +360,19 @@ main {
   min-width: 120px;
 }
 
-.config-fields input:focus {
+.config-fields input:focus,
+.config-fields select:focus {
   outline: none;
   border-color: var(--primary);
+}
+
+.config-fields select {
+  padding: 0.4rem 0.6rem;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.85rem;
 }
 
 .config-actions {

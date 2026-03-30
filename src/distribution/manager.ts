@@ -64,7 +64,7 @@ export class DistributionManager extends EventEmitter {
       try {
         logger.info(`Extracting stream key for ${ig.username}...`);
         const cookies = this.cookieManager.decryptCookies(ig.cookiesEnc);
-        const extractor = new InstagramKeyExtractor(ig.username, cookies, ig.liveTitle);
+        const extractor = new InstagramKeyExtractor(ig.username, cookies, ig.liveTitle, ig.audience);
         const result = await extractor.extractStreamKey();
 
         igDestinations.push({

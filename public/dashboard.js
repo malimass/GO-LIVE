@@ -140,6 +140,8 @@ function saveIg(btn) {
   const id = row.dataset.id ? parseInt(row.dataset.id) : null;
   const name = row.querySelector('.ig-name').value.trim();
   const username = row.querySelector('.ig-username').value.trim();
+  const liveTitle = row.querySelector('.ig-title') ? row.querySelector('.ig-title').value.trim() : 'LIVE';
+  const audience = row.querySelector('.ig-audience') ? row.querySelector('.ig-audience').value : 'public';
 
   if (!name || !username) {
     alert('Nome e Username sono obbligatori');
@@ -149,7 +151,7 @@ function saveIg(btn) {
   fetch('/api/config/instagram', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, name, username }),
+    body: JSON.stringify({ id, name, username, liveTitle, audience }),
   })
     .then((res) => res.json())
     .then((data) => {

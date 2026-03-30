@@ -63,12 +63,12 @@ export function createApiConfigRouter(config: Config): Router {
 
   router.post('/instagram', (req, res) => {
     try {
-      const { id, name, username } = req.body;
+      const { id, name, username, liveTitle, audience } = req.body;
       if (!name || !username) {
         res.status(400).json({ error: 'name e username sono obbligatori' });
         return;
       }
-      upsertInstagram(id || null, name, username);
+      upsertInstagram(id || null, name, username, liveTitle, audience);
       reloadDestinations(config);
       logger.info(`Instagram account saved: ${username}`);
       res.json({ success: true });

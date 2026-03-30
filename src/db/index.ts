@@ -24,11 +24,8 @@ export function getDb(): Database.Database {
 
 function initSchema(db: Database.Database): void {
   // Migrations for existing DBs
-  try {
-    db.exec(`ALTER TABLE instagram_accounts ADD COLUMN live_title TEXT NOT NULL DEFAULT 'LIVE'`);
-  } catch {
-    // Column already exists
-  }
+  try { db.exec(`ALTER TABLE instagram_accounts ADD COLUMN live_title TEXT NOT NULL DEFAULT 'LIVE'`); } catch { /* exists */ }
+  try { db.exec(`ALTER TABLE instagram_accounts ADD COLUMN audience TEXT NOT NULL DEFAULT 'public'`); } catch { /* exists */ }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
@@ -52,6 +49,7 @@ function initSchema(db: Database.Database): void {
       username TEXT NOT NULL,
       cookies_enc TEXT,
       live_title TEXT NOT NULL DEFAULT 'LIVE',
+      audience TEXT NOT NULL DEFAULT 'public',
       enabled INTEGER NOT NULL DEFAULT 1,
       last_cookie_update TEXT,
       created_at TEXT DEFAULT (datetime('now')),
@@ -109,11 +107,13 @@ export function getInstagramAccounts(): InstagramRow[] {
   return getDb().prepare('SELECT * FROM instagram_accounts ORDER BY id').all() as InstagramRow[];
 }
 
-export function upsertInstagram(id: number | null, name: string, username: string): void {
+export function upsertInstagram(id: number | null, name: string, username: string, liveTitle?: string, audience?: string): void {
+  const title = liveTitle || 'LIVE';
+  const aud = audience || 'public';
   if (id) {
-    getDb().prepare("UPDATE instagram_accounts SET name = ?, username = ?, updated_at = datetime('now') WHERE id = ?").run(name, username, id);
+    getDb().prepare("UPDATE instagram_accounts SET name = ?, username = ?, live_title = ?, audience = ?, updated_at = datetime('now') WHERE id = ?").run(name, username, title, aud, id);
   } else {
-    getDb().prepare('INSERT INTO instagram_accounts (name, username) VALUES (?, ?)').run(name, username);
+    getDb().prepare('INSERT INTO instagram_accounts (name, username, live_title, audience) VALUES (?, ?, ?, ?)').run(name, username, title, aud);
   }
 }
 

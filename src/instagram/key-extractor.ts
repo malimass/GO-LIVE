@@ -37,15 +37,17 @@ export class InstagramKeyExtractor {
   private username: string;
   private cookies: Cookie[];
   private title: string;
+  private audience: string;
   private broadcastId: string | null = null;
   private csrfToken: string = '';
   private sessionId: string = '';
   private userId: string = '';
 
-  constructor(username: string, cookies: Cookie[] | Record<string, unknown>[], title?: string) {
+  constructor(username: string, cookies: Cookie[] | Record<string, unknown>[], title?: string, audience?: string) {
     this.username = username;
     this.cookies = normalizeCookies(cookies as Record<string, unknown>[]);
     this.title = title || 'LIVE';
+    this.audience = audience || 'public';
 
     // Extract needed values from cookies
     for (const c of this.cookies) {
@@ -78,7 +80,7 @@ export class InstagramKeyExtractor {
         'Referer': 'https://www.instagram.com/live/producer/',
         'Origin': 'https://www.instagram.com',
       },
-      body: `preview_height=1080&preview_width=1920&source=2&broadcast_type=RTMP_SWAP_ENABLED&internal_only=0&audience=public&title=${encodeURIComponent(this.title)}`,
+      body: `preview_height=1080&preview_width=1920&source=2&broadcast_type=RTMP_SWAP_ENABLED&internal_only=0&audience=${encodeURIComponent(this.audience)}&title=${encodeURIComponent(this.title)}`,
     });
 
     if (!response.ok) {
