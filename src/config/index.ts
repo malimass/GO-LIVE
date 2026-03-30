@@ -10,6 +10,7 @@ export interface InstagramAccount {
   name: string;
   username: string;
   cookiesEnc: string;
+  liveTitle: string;
 }
 
 export interface Config {
@@ -75,6 +76,7 @@ export function loadInstagramFromDb(): InstagramAccount[] {
       name: row.name,
       username: row.username,
       cookiesEnc: row.cookies_enc!,
+      liveTitle: (row as any).live_title || 'LIVE',
     }));
 }
 

@@ -23,6 +23,13 @@ export function getDb(): Database.Database {
 }
 
 function initSchema(db: Database.Database): void {
+  // Migrations for existing DBs
+  try {
+    db.exec(`ALTER TABLE instagram_accounts ADD COLUMN live_title TEXT NOT NULL DEFAULT 'LIVE'`);
+  } catch {
+    // Column already exists
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
@@ -44,6 +51,7 @@ function initSchema(db: Database.Database): void {
       name TEXT NOT NULL,
       username TEXT NOT NULL,
       cookies_enc TEXT,
+      live_title TEXT NOT NULL DEFAULT 'LIVE',
       enabled INTEGER NOT NULL DEFAULT 1,
       last_cookie_update TEXT,
       created_at TEXT DEFAULT (datetime('now')),
