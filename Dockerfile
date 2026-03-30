@@ -12,28 +12,13 @@ RUN npx tsc
 FROM node:20-slim
 WORKDIR /app
 
-# Install ffmpeg, Chromium, and build tools for native modules
+# Install ffmpeg and build tools for native modules (better-sqlite3)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
-    chromium \
-    fonts-liberation \
-    libnss3 \
-    libatk-bridge2.0-0 \
-    libdrm2 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    libpangocairo-1.0-0 \
-    libgtk-3-0 \
     python3 \
     make \
     g++ \
     && rm -rf /var/lib/apt/lists/*
-
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
