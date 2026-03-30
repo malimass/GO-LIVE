@@ -46,7 +46,7 @@ export function createWebApp(config: Config, distribution: DistributionManager):
     secret: config.dashboardPassword + '_session',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: config.nodeEnv === 'production', maxAge: 24 * 60 * 60 * 1000 },
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 },
   }));
 
   // Login routes (no auth required)
