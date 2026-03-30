@@ -56,10 +56,9 @@ export class InstagramKeyExtractor {
     this.context = await this.browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       viewport: { width: 1920, height: 1080 },
-      locale: 'en-US',
+      locale: 'it-IT',
     });
 
-    // Load cookies
     await this.context.addCookies(this.cookies);
     this.page = await this.context.newPage();
 
@@ -68,7 +67,7 @@ export class InstagramKeyExtractor {
     await this.page.goto('https://www.instagram.com/', { waitUntil: 'networkidle' });
     await randomDelay(2000, 4000);
 
-    // Check if redirected to login (cookies expired)
+    // Check if redirected to login
     if (this.page.url().includes('/accounts/login')) {
       await this.cleanup();
       throw new Error(`Cookies expired for ${this.username} — login page detected`);
@@ -77,131 +76,99 @@ export class InstagramKeyExtractor {
     // Navigate to Live Producer
     logger.info(`[IG:${this.username}] Opening Live Producer`);
     await this.page.goto('https://www.instagram.com/live/producer/', { waitUntil: 'networkidle' });
-    await randomDelay(2000, 5000);
+    await randomDelay(3000, 5000);
 
-    // Check for errors or restrictions
-    const pageContent = await this.page.content();
-    if (pageContent.includes('Page Not Found') || pageContent.includes('unavailable')) {
-      const htmlSnippet = pageContent.substring(0, 500);
-      logger.error(`[IG:${this.username}] Live Producer not available. Page: ${htmlSnippet}`);
-      await this.cleanup();
-      throw new Error(`Live Producer unavailable for ${this.username}`);
-    }
-
-    // Wait for stream URL and key to appear
     logger.info(`[IG:${this.username}] Waiting for stream key elements`);
 
     try {
-      // Instagram Live Producer shows "Stream URL" and "Stream key" fields
-      // Try multiple selectors for robustness
-      const streamUrlSelectors = [
-        'input[aria-label*="Stream URL" i]',
-        'input[placeholder*="rtmp" i]',
-        '[data-testid="stream-url"] input',
-        'text=Stream URL >> .. >> input',
-      ];
-
-      const streamKeySelectors = [
-        'input[aria-label*="Stream key" i]',
-        'input[type="password"]',
-        '[data-testid="stream-key"] input',
-        'text=Stream key >> .. >> input',
-      ];
-
+      // Strategy 1: Find all text on the page containing rtmp URL
       let streamUrl = '';
       let streamKey = '';
 
-      // Try each selector for stream URL
-      for (const selector of streamUrlSelectors) {
-        try {
-          const el = await this.page.waitForSelector(selector, { timeout: 5000 });
-          if (el) {
-            streamUrl = await el.inputValue() || await el.getAttribute('value') || '';
-            if (streamUrl) break;
+      // Look for rtmp URL in the page text or input values
+      const allInputs = await this.page.$$('input, textarea');
+      for (const input of allInputs) {
+        const val = await input.inputValue().catch(() => '');
+        const placeholder = await input.getAttribute('placeholder').catch(() => '');
+        const ariaLabel = await input.getAttribute('aria-label').catch(() => '');
+
+        if (val.includes('rtmp')) {
+          streamUrl = val;
+          logger.info(`[IG:${this.username}] Found stream URL in input`);
+        } else if (streamUrl && !streamKey && val.length > 10) {
+          // The key is usually the next input after the URL
+          streamKey = val;
+          logger.info(`[IG:${this.username}] Found stream key in input`);
+        }
+
+        // Check aria labels / placeholders for stream key hints
+        const label = (ariaLabel || placeholder || '').toLowerCase();
+        if (label.includes('stream key') || label.includes('chiave') || label.includes('streaming key')) {
+          if (val) {
+            streamKey = val;
+            logger.info(`[IG:${this.username}] Found stream key via label: ${label}`);
           }
-        } catch {
-          continue;
+        }
+        if (label.includes('stream url') || label.includes('url dello streaming') || label.includes('server url')) {
+          if (val) {
+            streamUrl = val;
+            logger.info(`[IG:${this.username}] Found stream URL via label: ${label}`);
+          }
         }
       }
 
-      // Try each selector for stream key
-      for (const selector of streamKeySelectors) {
-        try {
-          const el = await this.page.waitForSelector(selector, { timeout: 5000 });
-          if (el) {
-            streamKey = await el.inputValue() || await el.getAttribute('value') || '';
-            if (streamKey) break;
-          }
-        } catch {
-          continue;
-        }
-      }
-
+      // Strategy 2: Look for the URL in page text content
       if (!streamUrl || !streamKey) {
-        // Fallback: try to find by intercepting network requests
-        logger.warn(`[IG:${this.username}] Could not find stream fields via selectors, trying alternative methods`);
+        const pageText = await this.page.evaluate('document.body.innerText') as string;
 
-        // Try clicking any "Go Live" or "Start" button first
-        const goLiveSelectors = [
-          'button:has-text("Go live")',
-          'button:has-text("Go Live")',
-          'button:has-text("Start")',
-          '[role="button"]:has-text("Go")',
-        ];
-
-        for (const selector of goLiveSelectors) {
-          try {
-            await this.page.click(selector, { timeout: 3000 });
-            await randomDelay(3000, 5000);
-            break;
-          } catch {
-            continue;
-          }
+        // Extract rtmp URL from page text
+        const rtmpMatch = pageText.match(/(rtmps?:\/\/[^\s]+)/);
+        if (rtmpMatch && !streamUrl) {
+          streamUrl = rtmpMatch[1];
+          logger.info(`[IG:${this.username}] Found stream URL in page text`);
         }
 
-        // Try selectors again after clicking
-        for (const selector of streamUrlSelectors) {
-          try {
-            const el = await this.page.waitForSelector(selector, { timeout: 5000 });
-            if (el) {
-              streamUrl = await el.inputValue() || await el.getAttribute('value') || '';
-              if (streamUrl) break;
-            }
-          } catch {
-            continue;
-          }
+        // Look for the key pattern (long string with ? and parameters)
+        const keyMatch = pageText.match(/(\d{10,}\?[^\s]+)/);
+        if (keyMatch && !streamKey) {
+          streamKey = keyMatch[1];
+          logger.info(`[IG:${this.username}] Found stream key in page text`);
         }
+      }
 
-        for (const selector of streamKeySelectors) {
-          try {
-            const el = await this.page.waitForSelector(selector, { timeout: 5000 });
-            if (el) {
-              streamKey = await el.inputValue() || await el.getAttribute('value') || '';
-              if (streamKey) break;
-            }
-          } catch {
-            continue;
+      // Strategy 3: Look in spans/divs that might contain copyable text
+      if (!streamUrl || !streamKey) {
+        const elements = await this.page.$$('span, div, p');
+        for (const el of elements) {
+          const text = await el.innerText().catch(() => '');
+          if (text.includes('rtmp') && !streamUrl) {
+            streamUrl = text.trim();
+          }
+          // Key pattern: starts with numbers, has ? and params
+          if (/^\d{10,}\?/.test(text.trim()) && !streamKey) {
+            streamKey = text.trim();
           }
         }
       }
 
       if (!streamUrl || !streamKey) {
-        // Last resort: dump page for debugging
+        // Save page content for debugging
         const html = await this.page.content();
-        logger.error(`[IG:${this.username}] Failed to extract stream key. Page HTML saved for debugging.`);
-        logger.debug(`[IG:${this.username}] Page HTML (first 2000 chars): ${html.substring(0, 2000)}`);
+        const pageText = await this.page.evaluate('document.body.innerText') as string;
+        logger.error(`[IG:${this.username}] Could not extract stream key.`);
+        logger.debug(`[IG:${this.username}] Page text: ${pageText.substring(0, 3000)}`);
         await this.cleanup();
         throw new Error(`Could not extract stream key for ${this.username}`);
       }
 
       logger.info(`[IG:${this.username}] Stream key extracted successfully`);
-
       return { url: streamUrl, key: streamKey };
+
     } catch (err) {
       if (err instanceof Error && err.message.includes('Could not extract')) {
         throw err;
       }
-      logger.error(`[IG:${this.username}] Unexpected error during key extraction`);
+      logger.error(`[IG:${this.username}] Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
       await this.cleanup();
       throw err;
     }
@@ -212,39 +179,24 @@ export class InstagramKeyExtractor {
 
     if (this.page) {
       try {
-        // Try to click "End Live" button
         const endSelectors = [
           'button:has-text("End live")',
           'button:has-text("End Live")',
+          'button:has-text("Termina")',
+          'button:has-text("Fine")',
           'button:has-text("End")',
-          '[role="button"]:has-text("End")',
         ];
 
         for (const selector of endSelectors) {
           try {
             await this.page.click(selector, { timeout: 3000 });
             await randomDelay(1000, 2000);
-
-            // Confirm end
-            const confirmSelectors = [
-              'button:has-text("End live video")',
-              'button:has-text("End Live Video")',
-              'button:has-text("Confirm")',
-            ];
-            for (const confirm of confirmSelectors) {
-              try {
-                await this.page.click(confirm, { timeout: 2000 });
-                break;
-              } catch {
-                continue;
-              }
-            }
             break;
           } catch {
             continue;
           }
         }
-      } catch (err) {
+      } catch {
         logger.warn(`[IG:${this.username}] Could not click End Live button`);
       }
     }
