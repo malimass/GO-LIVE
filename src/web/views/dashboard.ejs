@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GO-LIVE Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>GO-LIVE</h1>
+      <div class="header-right">
+        <span id="live-badge" class="badge <%= isLive ? 'badge-live' : 'badge-offline' %>">
+          <%= isLive ? 'LIVE' : 'OFFLINE' %>
+        </span>
+        <a href="/logout" class="btn btn-sm">Logout</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Stream Status -->
+    <section class="card">
+      <h2>Stato Destinazioni</h2>
+      <div id="destinations" class="destinations-grid">
+        <% if (statuses.length === 0) { %>
+          <p class="muted">Nessun stream attivo. Le destinazioni appariranno quando la camera si connette.</p>
+        <% } %>
+        <% statuses.forEach(function(s) { %>
+          <div class="dest-card dest-<%= s.status %>" data-name="<%= s.name %>">
+            <div class="dest-header">
+              <span class="dest-icon"><%= s.platform === 'facebook' ? 'FB' : 'IG' %></span>
+              <span class="dest-name"><%= s.name %></span>
+            </div>
+            <div class="dest-status"><%= s.status %></div>
+            <% if (s.health) { %>
+              <div class="dest-health">
+                <span><%= s.health.fps %> fps</span>
+                <span><%= s.health.bitrate %></span>
+                <span><%= s.health.speed %></span>
+              </div>
+            <% } %>
+          </div>
+        <% }); %>
+      </div>
+    </section>
+
+    <!-- Config -->
+    <section class="card">
+      <h2>Configurazione</h2>
+      <div class="config-grid">
+        <div class="config-section">
+          <h3>Facebook (<%= fbCount %> pagine)</h3>
+          <p class="muted">Stream key permanenti configurate via env vars.</p>
+        </div>
+        <div class="config-section">
+          <h3>Instagram (<%= igCount %> account)</h3>
+          <% igAccounts.forEach(function(username, i) { %>
+            <div class="ig-account">
+              <span>@<%= username %></span>
+              <button class="btn btn-sm" onclick="showCookieUpload(<%= i + 1 %>)">Aggiorna Cookie</button>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cookie Upload Modal -->
+    <div id="cookie-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Upload Cookie Instagram</h3>
+        <p>Incolla i cookie esportati dal browser (formato JSON array):</p>
+        <textarea id="cookie-input" rows="10" placeholder='[{"name":"sessionid","value":"...","domain":".instagram.com",...}]'></textarea>
+        <input type="hidden" id="cookie-account-index">
+        <div class="modal-actions">
+          <button class="btn" onclick="closeCookieModal()">Annulla</button>
+          <button class="btn btn-primary" onclick="uploadCookies()">Cifra e Salva</button>
+        </div>
+        <div id="cookie-result" class="hidden"></div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <section class="card">
+      <h2>Controlli</h2>
+      <div class="controls">
+        <button class="btn btn-danger" onclick="stopStream()" id="btn-stop" <%= !isLive ? 'disabled' : '' %>>
+          Ferma Distribuzione
+        </button>
+      </div>
+    </section>
+
+    <!-- Logs -->
+    <section class="card">
+      <h2>Log</h2>
+      <div id="logs" class="log-viewer">
+        <p class="muted">Caricamento...</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/dashboard.js"></script>
+</body>
+</html>
