@@ -11,6 +11,27 @@ function randomDelay(minMs: number, maxMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizeCookies(cookies: Record<string, unknown>[]): Cookie[] {
+  return cookies.map((c) => {
+    const sameSite = String(c.sameSite || 'Lax');
+    let normalizedSameSite: 'Strict' | 'Lax' | 'None' = 'Lax';
+    if (sameSite.toLowerCase() === 'strict') normalizedSameSite = 'Strict';
+    else if (sameSite.toLowerCase() === 'none' || sameSite === 'no_restriction' || sameSite === 'unspecified') normalizedSameSite = 'None';
+    else normalizedSameSite = 'Lax';
+
+    return {
+      name: String(c.name || ''),
+      value: String(c.value || ''),
+      domain: String(c.domain || ''),
+      path: String(c.path || '/'),
+      expires: typeof c.expirationDate === 'number' ? c.expirationDate : (typeof c.expires === 'number' ? c.expires : -1),
+      httpOnly: Boolean(c.httpOnly),
+      secure: Boolean(c.secure),
+      sameSite: normalizedSameSite,
+    } as Cookie;
+  }).filter((c) => c.name && c.domain);
+}
+
 export class InstagramKeyExtractor {
   private username: string;
   private cookies: Cookie[];
@@ -18,9 +39,9 @@ export class InstagramKeyExtractor {
   private context: BrowserContext | null = null;
   private page: Page | null = null;
 
-  constructor(username: string, cookies: Cookie[]) {
+  constructor(username: string, cookies: Cookie[] | Record<string, unknown>[]) {
     this.username = username;
-    this.cookies = cookies;
+    this.cookies = normalizeCookies(cookies as Record<string, unknown>[]);
   }
 
   async extractStreamKey(): Promise<StreamKeyResult> {
