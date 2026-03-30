@@ -83,7 +83,6 @@ export class FfmpegProcess extends EventEmitter {
       if (code !== 0) {
         logger.error(`[${this.destination.name}] Exited with code ${code}`);
         this._status = 'error';
-        this.emit('error', code);
         this.attemptRestart();
       }
     });
@@ -92,7 +91,6 @@ export class FfmpegProcess extends EventEmitter {
       logger.error(`[${this.destination.name}] Process error: ${err.message}`);
       this._status = 'error';
       this.process = null;
-      this.emit('error', err);
       this.attemptRestart();
     });
   }

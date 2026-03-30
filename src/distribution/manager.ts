@@ -109,6 +109,20 @@ export class DistributionManager extends EventEmitter {
       proc.start();
     }
 
+    // Wait for ffmpeg to connect and send first frames, then tell Instagram to "Go Live"
+    if (this.igExtractors.length > 0) {
+      setTimeout(async () => {
+        for (const extractor of this.igExtractors) {
+          try {
+            await extractor.startBroadcast();
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            logger.error(`Failed to start IG broadcast: ${msg}`);
+          }
+        }
+      }, 8000);
+    }
+
     this.emit('started', allDestinations.length);
   }
 

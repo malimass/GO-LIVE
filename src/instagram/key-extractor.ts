@@ -119,6 +119,38 @@ export class InstagramKeyExtractor {
     return { url: streamUrl, key: streamKey };
   }
 
+  async startBroadcast(): Promise<void> {
+    if (!this.broadcastId) return;
+
+    logger.info(`[IG:${this.username}] Starting broadcast (Go Live)...`);
+
+    const cookieStr = this.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+
+    const response = await fetch(`https://www.instagram.com/api/v1/live/${this.broadcastId}/start/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Cookie': cookieStr,
+        'X-CSRFToken': this.csrfToken,
+        'X-IG-App-ID': '936619743392459',
+        'X-Requested-With': 'XMLHttpRequest',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Referer': 'https://www.instagram.com/live/producer/',
+        'Origin': 'https://www.instagram.com',
+      },
+      body: '',
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      logger.error(`[IG:${this.username}] Start broadcast error ${response.status}: ${text.substring(0, 500)}`);
+      return;
+    }
+
+    const data = await response.json() as Record<string, unknown>;
+    logger.info(`[IG:${this.username}] Broadcast started! Status: ${data.status}`);
+  }
+
   async endLive(): Promise<void> {
     if (!this.broadcastId) return;
 
