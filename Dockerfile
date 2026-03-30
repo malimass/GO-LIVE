@@ -1,6 +1,18 @@
-FROM node:20-bookworm
+# Stage 1: Build
+FROM node:20 AS builder
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm install
+COPY tsconfig.json ./
+COPY src/ ./src/
+COPY public/ ./public/
+RUN npx tsc
 
-# Install ffmpeg and Chromium dependencies
+# Stage 2: Runtime
+FROM node:20-slim
+WORKDIR /app
+
+# Install ffmpeg and Chromium
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     chromium \
@@ -17,26 +29,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtk-3-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Tell Playwright to use system Chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
-WORKDIR /app
-
-# Install ALL dependencies (including dev for build)
 COPY package.json package-lock.json* ./
-RUN npm ci 2>/dev/null || npm install
+RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
 
-# Copy source and build
-COPY tsconfig.json ./
-COPY src/ ./src/
-COPY public/ ./public/
-RUN npm run build
+# Copy built files from builder
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/src/web/views ./dist/web/views
 
-# Remove dev dependencies after build
-RUN npm prune --omit=dev
-
-# Create logs directory
 RUN mkdir -p logs
 
 EXPOSE 1935 3000
