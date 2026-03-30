@@ -1,7 +1,25 @@
-FROM mcr.microsoft.com/playwright:v1.50.0-noble
+FROM node:20-bookworm
 
-# Install ffmpeg
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+# Install ffmpeg and Chromium dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    chromium \
+    fonts-liberation \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libgtk-3-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Tell Playwright to use system Chromium
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 WORKDIR /app
 

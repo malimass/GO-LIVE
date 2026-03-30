@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  go-live:
+    build: .
+    container_name: go-live
+    restart: always
+    env_file: .env
+    ports:
+      - "1935:1935"   # RTMP ingest
+      - "3000:3000"   # Dashboard (behind Nginx)
+    volumes:
+      - logs:/app/logs
+    networks:
+      - go-live-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: go-live-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      - go-live
+    networks:
+      - go-live-net
+
+  certbot:
+    image: certbot/certbot
+    container_name: go-live-certbot
+    volumes:
+      - ./nginx/ssl:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - go-live-net
+
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    container_name: go-live-duckdns
+    restart: always
+    environment:
+      - SUBDOMAINS=${DUCKDNS_SUBDOMAIN}
+      - TOKEN=${DUCKDNS_TOKEN}
+      - TZ=Europe/Rome
+    networks:
+      - go-live-net
+
+volumes:
+  logs:
+  certbot-webroot:
+
+networks:
+  go-live-net:
+    driver: bridge

@@ -28,7 +28,8 @@ export class InstagramKeyExtractor {
 
     this.browser = await chromium.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
     });
 
     this.context = await this.browser.newContext({

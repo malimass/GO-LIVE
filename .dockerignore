@@ -5,3 +5,6 @@ dist
 *.md
 tests
 logs
+nginx/ssl
+certbot-webroot
+setup.sh
