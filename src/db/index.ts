@@ -77,7 +77,7 @@ export function getFacebookDestinations(): FacebookRow[] {
 
 export function upsertFacebook(id: number | null, name: string, rtmpUrl: string, streamKey: string): void {
   if (id) {
-    getDb().prepare('UPDATE facebook_destinations SET name = ?, rtmp_url = ?, stream_key = ?, updated_at = datetime("now") WHERE id = ?').run(name, rtmpUrl, streamKey, id);
+    getDb().prepare("UPDATE facebook_destinations SET name = ?, rtmp_url = ?, stream_key = ?, updated_at = datetime('now') WHERE id = ?").run(name, rtmpUrl, streamKey, id);
   } else {
     getDb().prepare('INSERT INTO facebook_destinations (name, rtmp_url, stream_key) VALUES (?, ?, ?)').run(name, rtmpUrl, streamKey);
   }
@@ -103,14 +103,14 @@ export function getInstagramAccounts(): InstagramRow[] {
 
 export function upsertInstagram(id: number | null, name: string, username: string): void {
   if (id) {
-    getDb().prepare('UPDATE instagram_accounts SET name = ?, username = ?, updated_at = datetime("now") WHERE id = ?').run(name, username, id);
+    getDb().prepare("UPDATE instagram_accounts SET name = ?, username = ?, updated_at = datetime('now') WHERE id = ?").run(name, username, id);
   } else {
     getDb().prepare('INSERT INTO instagram_accounts (name, username) VALUES (?, ?)').run(name, username);
   }
 }
 
 export function updateInstagramCookies(id: number, cookiesEnc: string): void {
-  getDb().prepare('UPDATE instagram_accounts SET cookies_enc = ?, last_cookie_update = datetime("now"), updated_at = datetime("now") WHERE id = ?').run(cookiesEnc, id);
+  getDb().prepare("UPDATE instagram_accounts SET cookies_enc = ?, last_cookie_update = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(cookiesEnc, id);
 }
 
 export function deleteInstagram(id: number): void {
