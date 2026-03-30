@@ -6,3 +6,5 @@ logs/
 *.log
 .DS_Store
 Thumbs.db
+ssh-key-*.key
+ssh-key-*.key.pub

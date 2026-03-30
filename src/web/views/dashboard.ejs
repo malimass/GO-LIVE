@@ -22,7 +22,7 @@
   <main>
     <!-- Stream Status -->
     <section class="card">
-      <h2>Stato Destinazioni</h2>
+      <h2>Stato Stream</h2>
       <div id="destinations" class="destinations-grid">
         <% if (statuses.length === 0) { %>
           <p class="muted">Nessun stream attivo. Le destinazioni appariranno quando la camera si connette.</p>
@@ -38,32 +38,62 @@
               <div class="dest-health">
                 <span><%= s.health.fps %> fps</span>
                 <span><%= s.health.bitrate %></span>
-                <span><%= s.health.speed %></span>
               </div>
             <% } %>
           </div>
         <% }); %>
       </div>
+      <div class="controls" style="margin-top:1rem;">
+        <button class="btn btn-danger" onclick="stopStream()" id="btn-stop" <%= !isLive ? 'disabled' : '' %>>
+          Ferma Distribuzione
+        </button>
+      </div>
     </section>
 
-    <!-- Config -->
+    <!-- Facebook Config -->
     <section class="card">
-      <h2>Configurazione</h2>
-      <div class="config-grid">
-        <div class="config-section">
-          <h3>Facebook (<%= fbCount %> pagine)</h3>
-          <p class="muted">Stream key permanenti configurate via env vars.</p>
-        </div>
-        <div class="config-section">
-          <h3>Instagram (<%= igCount %> account)</h3>
-          <% igAccounts.forEach(function(username, i) { %>
-            <div class="ig-account">
-              <span>@<%= username %></span>
-              <button class="btn btn-sm" onclick="showCookieUpload(<%= i + 1 %>)">Aggiorna Cookie</button>
+      <h2>Facebook</h2>
+      <div id="fb-list">
+        <% fbDests.forEach(function(fb) { %>
+          <div class="config-row" data-id="<%= fb.id %>">
+            <div class="config-fields">
+              <input type="text" value="<%= fb.name %>" placeholder="Nome (es. Pagina 1)" class="fb-name">
+              <input type="text" value="<%= fb.rtmp_url %>" placeholder="RTMP URL" class="fb-url">
+              <input type="text" value="<%= fb.stream_key %>" placeholder="Stream Key" class="fb-key">
             </div>
-          <% }); %>
-        </div>
+            <div class="config-actions">
+              <button class="btn btn-sm btn-primary" onclick="saveFb(this)">Salva</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteFb(<%= fb.id %>)">X</button>
+            </div>
+          </div>
+        <% }); %>
       </div>
+      <button class="btn btn-sm" onclick="addFbRow()" style="margin-top:0.75rem;">+ Aggiungi Pagina Facebook</button>
+    </section>
+
+    <!-- Instagram Config -->
+    <section class="card">
+      <h2>Instagram</h2>
+      <div id="ig-list">
+        <% igAccounts.forEach(function(ig) { %>
+          <div class="config-row" data-id="<%= ig.id %>">
+            <div class="config-fields">
+              <input type="text" value="<%= ig.name %>" placeholder="Nome (es. Account 1)" class="ig-name">
+              <input type="text" value="<%= ig.username %>" placeholder="Username" class="ig-username">
+              <span class="cookie-status <%= ig.hasCookies ? 'cookie-ok' : 'cookie-missing' %>">
+                <%= ig.hasCookies ? 'Cookie OK' : 'No cookie' %>
+                <% if (ig.last_cookie_update) { %><small>(<%= ig.last_cookie_update %>)</small><% } %>
+              </span>
+            </div>
+            <div class="config-actions">
+              <button class="btn btn-sm btn-primary" onclick="saveIg(this)">Salva</button>
+              <button class="btn btn-sm" onclick="showCookieUpload(<%= ig.id %>)">Cookie</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteIg(<%= ig.id %>)">X</button>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+      <button class="btn btn-sm" onclick="addIgRow()" style="margin-top:0.75rem;">+ Aggiungi Account Instagram</button>
     </section>
 
     <!-- Cookie Upload Modal -->
@@ -72,24 +102,14 @@
         <h3>Upload Cookie Instagram</h3>
         <p>Incolla i cookie esportati dal browser (formato JSON array):</p>
         <textarea id="cookie-input" rows="10" placeholder='[{"name":"sessionid","value":"...","domain":".instagram.com",...}]'></textarea>
-        <input type="hidden" id="cookie-account-index">
+        <input type="hidden" id="cookie-account-id">
         <div class="modal-actions">
           <button class="btn" onclick="closeCookieModal()">Annulla</button>
-          <button class="btn btn-primary" onclick="uploadCookies()">Cifra e Salva</button>
+          <button class="btn btn-primary" onclick="uploadCookies()">Salva Cookie</button>
         </div>
         <div id="cookie-result" class="hidden"></div>
       </div>
     </div>
-
-    <!-- Controls -->
-    <section class="card">
-      <h2>Controlli</h2>
-      <div class="controls">
-        <button class="btn btn-danger" onclick="stopStream()" id="btn-stop" <%= !isLive ? 'disabled' : '' %>>
-          Ferma Distribuzione
-        </button>
-      </div>
-    </section>
 
     <!-- Logs -->
     <section class="card">

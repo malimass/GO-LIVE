@@ -1,3 +1,5 @@
+import { getFacebookDestinations, getInstagramAccounts, getDb } from '../db/index.js';
+
 export interface FacebookDestination {
   name: string;
   rtmpUrl: string;
@@ -41,23 +43,8 @@ export function loadConfig(): Config {
     process.exit(1);
   }
 
-  const facebook: FacebookDestination[] = [];
-  for (let i = 1; i <= 3; i++) {
-    const rtmpUrl = process.env[`FB_PAGE_${i}_RTMP_URL`];
-    const streamKey = process.env[`FB_PAGE_${i}_STREAM_KEY`];
-    if (rtmpUrl && streamKey) {
-      facebook.push({ name: `Facebook ${i}`, rtmpUrl, streamKey });
-    }
-  }
-
-  const instagram: InstagramAccount[] = [];
-  for (let i = 1; i <= 3; i++) {
-    const cookiesEnc = process.env[`IG_ACCOUNT_${i}_COOKIES_ENC`];
-    const username = process.env[`IG_ACCOUNT_${i}_USERNAME`] || `ig_account_${i}`;
-    if (cookiesEnc) {
-      instagram.push({ name: `Instagram ${i}`, username, cookiesEnc });
-    }
-  }
+  // Initialize DB
+  getDb();
 
   return {
     rtmpIngestKey: requireEnv('RTMP_INGEST_KEY'),
@@ -66,7 +53,32 @@ export function loadConfig(): Config {
     dashboardPassword: requireEnv('DASHBOARD_PASSWORD'),
     port: parseInt(optionalEnv('PORT', '3000'), 10),
     nodeEnv: optionalEnv('NODE_ENV', 'development'),
-    facebook,
-    instagram,
+    facebook: loadFacebookFromDb(),
+    instagram: loadInstagramFromDb(),
   };
+}
+
+export function loadFacebookFromDb(): FacebookDestination[] {
+  return getFacebookDestinations()
+    .filter((row) => row.enabled)
+    .map((row) => ({
+      name: row.name,
+      rtmpUrl: row.rtmp_url,
+      streamKey: row.stream_key,
+    }));
+}
+
+export function loadInstagramFromDb(): InstagramAccount[] {
+  return getInstagramAccounts()
+    .filter((row) => row.enabled && row.cookies_enc)
+    .map((row) => ({
+      name: row.name,
+      username: row.username,
+      cookiesEnc: row.cookies_enc!,
+    }));
+}
+
+export function reloadDestinations(config: Config): void {
+  config.facebook = loadFacebookFromDb();
+  config.instagram = loadInstagramFromDb();
 }

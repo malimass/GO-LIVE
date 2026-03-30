@@ -1,17 +1,23 @@
 import { Router } from 'express';
-import type { Config } from '../../config/index.js';
+import { getFacebookDestinations, getInstagramAccounts } from '../../db/index.js';
 import type { DistributionManager } from '../../distribution/manager.js';
 
-export function createDashboardRouter(config: Config, distribution: DistributionManager): Router {
+export function createDashboardRouter(config: unknown, distribution: DistributionManager): Router {
   const router = Router();
 
   router.get('/', (_req, res) => {
+    const fbDests = getFacebookDestinations();
+    const igAccounts = getInstagramAccounts();
+
     res.render('dashboard', {
       isLive: distribution.isLive,
       statuses: distribution.getStatuses(),
-      fbCount: config.facebook.length,
-      igCount: config.instagram.length,
-      igAccounts: config.instagram.map((ig) => ig.username),
+      fbDests,
+      igAccounts: igAccounts.map((a) => ({
+        ...a,
+        cookies_enc: undefined,
+        hasCookies: !!a.cookies_enc,
+      })),
     });
   });
 

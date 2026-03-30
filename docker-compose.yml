@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   go-live:
     build: .
@@ -11,6 +9,7 @@ services:
       - "3000:3000"   # Dashboard (behind Nginx)
     volumes:
       - logs:/app/logs
+      - data:/app/data
     networks:
       - go-live-net
 
@@ -53,6 +52,7 @@ services:
 
 volumes:
   logs:
+  data:
   certbot-webroot:
 
 networks:

@@ -12,7 +12,7 @@ RUN npx tsc
 FROM node:20-slim
 WORKDIR /app
 
-# Install ffmpeg and Chromium
+# Install ffmpeg, Chromium, and build tools for native modules
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     chromium \
@@ -27,6 +27,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     libpangocairo-1.0-0 \
     libgtk-3-0 \
+    python3 \
+    make \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
@@ -40,7 +43,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/src/web/views ./dist/web/views
 
-RUN mkdir -p logs
+RUN mkdir -p logs data
 
 EXPOSE 1935 3000
 
