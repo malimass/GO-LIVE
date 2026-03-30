@@ -23,15 +23,18 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 WORKDIR /app
 
-# Install dependencies
+# Install ALL dependencies (including dev for build)
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
+RUN npm ci 2>/dev/null || npm install
 
 # Copy source and build
 COPY tsconfig.json ./
 COPY src/ ./src/
 COPY public/ ./public/
 RUN npm run build
+
+# Remove dev dependencies after build
+RUN npm prune --omit=dev
 
 # Create logs directory
 RUN mkdir -p logs
