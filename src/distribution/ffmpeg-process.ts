@@ -24,6 +24,7 @@ export class FfmpegProcess extends EventEmitter {
   private lastHealth: FfmpegHealth | null = null;
   private retryCount = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private stderrBuffer: string[] = [];
 
   readonly maxRetries = 3;
   readonly destination: DestinationConfig;
@@ -67,9 +68,13 @@ export class FfmpegProcess extends EventEmitter {
     this._status = 'running';
     this.startTime = Date.now();
 
+    this.stderrBuffer = [];
     this.process.stderr?.on('data', (data: Buffer) => {
       const line = data.toString();
       this.parseHealth(line);
+      // Keep last 20 lines of stderr for error diagnostics
+      this.stderrBuffer.push(line.trim());
+      if (this.stderrBuffer.length > 20) this.stderrBuffer.shift();
     });
 
     this.process.on('close', (code) => {
@@ -81,7 +86,8 @@ export class FfmpegProcess extends EventEmitter {
       }
 
       if (code !== 0) {
-        logger.error(`[${this.destination.name}] Exited with code ${code}`);
+        const lastLines = this.stderrBuffer.filter(l => l.length > 0).join('\n');
+        logger.error(`[${this.destination.name}] Exited with code ${code}. ffmpeg output:\n${lastLines}`);
         this._status = 'error';
         this.attemptRestart();
       }
