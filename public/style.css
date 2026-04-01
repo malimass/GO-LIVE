@@ -112,9 +112,16 @@ main {
   padding: 1rem;
 }
 
-.dest-card.dest-running { border-color: var(--success); }
-.dest-card.dest-error { border-color: var(--danger); }
+.dest-card.dest-running {
+  border-color: var(--success);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.15);
+}
+.dest-card.dest-error {
+  border-color: var(--danger);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.15);
+}
 .dest-card.dest-idle { border-color: var(--border); }
+.dest-card.dest-stopped { border-color: var(--text-muted); opacity: 0.6; }
 
 .dest-header {
   display: flex;
@@ -128,16 +135,15 @@ main {
   font-size: 0.75rem;
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
+  color: white;
 }
 
-.dest-card:has(.dest-icon:first-child) .dest-icon {
+.dest-icon-facebook {
   background: var(--fb-blue);
-  color: white;
 }
 
-.dest-card:nth-child(n+4) .dest-icon {
+.dest-icon-instagram {
   background: var(--ig-pink);
-  color: white;
 }
 
 .dest-name { font-weight: 500; }
@@ -397,9 +403,77 @@ main {
   background: rgba(245, 158, 11, 0.1);
 }
 
+/* Live Timer */
+.live-timer {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--danger);
+  letter-spacing: 1px;
+}
+
+/* RTMP Info */
+.rtmp-info { padding: 1rem 1.5rem; }
+.rtmp-info h2 { margin-bottom: 0.5rem; }
+
+.rtmp-url-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rtmp-url-row code {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--primary);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Colored Logs */
+.log-error { color: var(--danger); }
+.log-warn { color: var(--warning); }
+.log-success { color: var(--success); }
+
+/* Card transitions */
+.dest-card {
+  transition: border-color 0.3s, box-shadow 0.3s, opacity 0.3s;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .config-grid { grid-template-columns: 1fr; }
-  .destinations-grid { grid-template-columns: 1fr 1fr; }
+  .destinations-grid { grid-template-columns: 1fr; }
   main { padding: 1rem; }
+  header { padding: 0.75rem 1rem; }
+  .header-content h1 { font-size: 1.2rem; }
+
+  .config-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .config-actions {
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+  }
+
+  .config-fields input,
+  .config-fields select {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .rtmp-url-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rtmp-url-row code {
+    font-size: 0.75rem;
+  }
 }

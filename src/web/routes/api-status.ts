@@ -7,6 +7,7 @@ export function createApiStatusRouter(distribution: DistributionManager): Router
   router.get('/', (_req, res) => {
     res.json({
       live: distribution.isLive,
+      startedAt: distribution.startedAt?.toISOString() || null,
       destinations: distribution.getStatuses(),
     });
   });

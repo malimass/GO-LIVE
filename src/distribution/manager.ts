@@ -21,6 +21,7 @@ export class DistributionManager extends EventEmitter {
   private config: Config;
   private _isLive = false;
   private _streamPath: string | null = null;
+  private _startedAt: Date | null = null;
 
   constructor(config: Config) {
     super();
@@ -30,6 +31,10 @@ export class DistributionManager extends EventEmitter {
 
   get isLive(): boolean {
     return this._isLive;
+  }
+
+  get startedAt(): Date | null {
+    return this._startedAt;
   }
 
   private fbNames = new Set<string>();
@@ -51,6 +56,7 @@ export class DistributionManager extends EventEmitter {
 
     this._isLive = true;
     this._streamPath = streamPath;
+    this._startedAt = new Date();
     const inputUrl = `rtmp://127.0.0.1:${this.config.rtmpPort}${streamPath}`;
 
     logger.info(`Starting distribution from ${streamPath}`);
@@ -158,6 +164,7 @@ export class DistributionManager extends EventEmitter {
   async stopAll(): Promise<void> {
     this._isLive = false;
     this._streamPath = null;
+    this._startedAt = null;
 
     // Stop all ffmpeg processes
     for (const proc of this.processes) {

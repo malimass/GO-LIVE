@@ -11,6 +11,7 @@
     <div class="header-content">
       <h1>GO-LIVE</h1>
       <div class="header-right">
+        <span id="live-timer" class="live-timer hidden"></span>
         <span id="live-badge" class="badge <%= isLive ? 'badge-live' : 'badge-offline' %>">
           <%= isLive ? 'LIVE' : 'OFFLINE' %>
         </span>
@@ -20,6 +21,15 @@
   </header>
 
   <main>
+    <!-- RTMP Info -->
+    <section class="card rtmp-info">
+      <h2>Connessione</h2>
+      <div class="rtmp-url-row">
+        <code id="rtmp-url">rtmp://live.1000kmdigratitudine.it:1935/live/1000kmlive</code>
+        <button class="btn btn-sm" onclick="copyRtmpUrl()" title="Copia URL">Copia</button>
+      </div>
+    </section>
+
     <!-- Stream Status -->
     <section class="card">
       <h2>Stato Stream</h2>
