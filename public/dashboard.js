@@ -15,17 +15,21 @@ function updateStatus() {
       if (btnStop) btnStop.disabled = !data.live;
 
       const container = document.getElementById('destinations');
-      if (container && data.destinations.length > 0) {
-        container.innerHTML = data.destinations.map((d) => `
-          <div class="dest-card dest-${d.status}">
-            <div class="dest-header">
-              <span class="dest-icon">${d.platform === 'facebook' ? 'FB' : 'IG'}</span>
-              <span class="dest-name">${d.name}</span>
+      if (container) {
+        if (data.destinations.length > 0) {
+          container.innerHTML = data.destinations.map((d) => `
+            <div class="dest-card dest-${d.status}">
+              <div class="dest-header">
+                <span class="dest-icon">${d.platform === 'facebook' ? 'FB' : 'IG'}</span>
+                <span class="dest-name">${d.name}</span>
+              </div>
+              <div class="dest-status">${d.status}</div>
+              ${d.health ? `<div class="dest-health"><span>${d.health.fps} fps</span><span>${d.health.bitrate}</span></div>` : ''}
             </div>
-            <div class="dest-status">${d.status}</div>
-            ${d.health ? `<div class="dest-health"><span>${d.health.fps} fps</span><span>${d.health.bitrate}</span></div>` : ''}
-          </div>
-        `).join('');
+          `).join('');
+        } else {
+          container.innerHTML = '<p class="muted">Nessun stream attivo. Le destinazioni appariranno quando la camera si connette.</p>';
+        }
       }
     })
     .catch(() => {});
