@@ -131,6 +131,22 @@
       </div>
     </div>
 
+    <!-- Overlay Config -->
+    <section class="card">
+      <h2>Overlay Immagine</h2>
+      <p class="muted" style="margin-bottom:0.75rem;">L'immagine viene sovrapposta in basso al centro del video. Usa un PNG trasparente per il miglior risultato. Attivo dalla prossima live.</p>
+      <div id="overlay-status">
+        <div id="overlay-preview-container" class="hidden">
+          <img id="overlay-preview" src="" alt="Overlay preview" class="overlay-preview">
+        </div>
+        <div class="overlay-actions">
+          <label class="btn btn-sm btn-primary" for="overlay-upload">Carica Immagine</label>
+          <input type="file" id="overlay-upload" accept="image/*" class="hidden" onchange="uploadOverlay(this)">
+          <button class="btn btn-sm btn-danger" id="overlay-remove-btn" onclick="removeOverlay()" style="display:none;">Rimuovi</button>
+        </div>
+      </div>
+    </section>
+
     <!-- Facebook Token Modal -->
     <div id="token-modal" class="modal hidden">
       <div class="modal-content">

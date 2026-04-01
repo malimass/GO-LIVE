@@ -434,6 +434,22 @@ main {
   white-space: nowrap;
 }
 
+/* Overlay */
+.overlay-preview {
+  max-width: 100%;
+  max-height: 120px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+  background: repeating-conic-gradient(#2a2d3a 0% 25%, #1a1d27 0% 50%) 50% / 16px 16px;
+}
+
+.overlay-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 /* Colored Logs */
 .log-error { color: var(--danger); }
 .log-warn { color: var(--warning); }

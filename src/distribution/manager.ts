@@ -1,10 +1,16 @@
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import path from 'path';
 import { FfmpegProcess, type DestinationConfig, type ProcessStatus, type FfmpegHealth } from './ffmpeg-process.js';
+import { OverlayPreprocessor } from './overlay-preprocessor.js';
 import { InstagramKeyExtractor } from '../instagram/key-extractor.js';
 import { FacebookBroadcastManager } from '../facebook/broadcast-manager.js';
 import { CookieManager } from '../instagram/cookie-manager.js';
 import { logger } from '../logging/logger.js';
 import type { Config } from '../config/index.js';
+
+const OVERLAY_PATH = path.join(process.cwd(), 'data', 'overlay.png');
+const PROCESSED_STREAM_PATH = '/processed/stream';
 
 export interface DestinationStatus {
   name: string;
@@ -17,6 +23,7 @@ export class DistributionManager extends EventEmitter {
   private processes: FfmpegProcess[] = [];
   private igExtractors: InstagramKeyExtractor[] = [];
   private fbManagers: FacebookBroadcastManager[] = [];
+  private overlayPreprocessor: OverlayPreprocessor | null = null;
   private cookieManager: CookieManager;
   private config: Config;
   private _isLive = false;
@@ -57,9 +64,22 @@ export class DistributionManager extends EventEmitter {
     this._isLive = true;
     this._streamPath = streamPath;
     this._startedAt = new Date();
-    const inputUrl = `rtmp://127.0.0.1:${this.config.rtmpPort}${streamPath}`;
+    const rawInputUrl = `rtmp://127.0.0.1:${this.config.rtmpPort}${streamPath}`;
 
     logger.info(`Starting distribution from ${streamPath}`);
+
+    // If overlay image exists, start preprocessor
+    let inputUrl = rawInputUrl;
+    const hasOverlay = fs.existsSync(OVERLAY_PATH);
+    if (hasOverlay) {
+      const processedUrl = `rtmp://127.0.0.1:${this.config.rtmpPort}${PROCESSED_STREAM_PATH}`;
+      this.overlayPreprocessor = new OverlayPreprocessor(rawInputUrl, processedUrl, OVERLAY_PATH);
+      this.overlayPreprocessor.start();
+      inputUrl = processedUrl;
+      logger.info('[Overlay] Preprocessor started, destinations will use processed stream');
+      // Give the preprocessor time to connect and start publishing
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
 
     // Create Facebook live broadcasts via Graph API
     this.fbNames.clear();
@@ -165,6 +185,12 @@ export class DistributionManager extends EventEmitter {
     this._isLive = false;
     this._streamPath = null;
     this._startedAt = null;
+
+    // Stop overlay preprocessor
+    if (this.overlayPreprocessor) {
+      this.overlayPreprocessor.stop();
+      this.overlayPreprocessor = null;
+    }
 
     // Stop all ffmpeg processes
     for (const proc of this.processes) {

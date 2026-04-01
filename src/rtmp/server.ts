@@ -19,6 +19,12 @@ export function createRtmpServer(config: Config, distribution: DistributionManag
   });
 
   nms.on('prePublish', (id: string, streamPath: string, args: Record<string, string>) => {
+    // Allow internal preprocessed streams (overlay)
+    if (streamPath.startsWith('/processed/')) {
+      logger.info(`Internal preprocessed stream: ${streamPath}`);
+      return;
+    }
+
     const session = nms.getSession(id);
     const key = streamPath.split('/').pop();
 

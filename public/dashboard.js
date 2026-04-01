@@ -322,8 +322,67 @@ function uploadCookies() {
     .catch((err) => alert('Errore: ' + err.message));
 }
 
+// === OVERLAY ===
+function loadOverlayStatus() {
+  fetch('/api/overlay')
+    .then((res) => res.json())
+    .then((data) => {
+      const preview = document.getElementById('overlay-preview');
+      const container = document.getElementById('overlay-preview-container');
+      const removeBtn = document.getElementById('overlay-remove-btn');
+      if (data.enabled && preview && container && removeBtn) {
+        preview.src = data.url + '?t=' + Date.now();
+        container.classList.remove('hidden');
+        removeBtn.style.display = '';
+      } else if (container && removeBtn) {
+        container.classList.add('hidden');
+        removeBtn.style.display = 'none';
+      }
+    })
+    .catch(() => {});
+}
+
+function uploadOverlay(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Immagine troppo grande (max 5MB)');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('overlay', file);
+
+  fetch('/api/overlay', {
+    method: 'POST',
+    body: formData,
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.success) {
+        loadOverlayStatus();
+        input.value = '';
+      } else {
+        alert(data.error || 'Errore');
+      }
+    })
+    .catch((err) => alert('Errore: ' + err.message));
+}
+
+function removeOverlay() {
+  if (!confirm('Rimuovere l\'overlay?')) return;
+  fetch('/api/overlay', { method: 'DELETE' })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.success) loadOverlayStatus();
+    })
+    .catch((err) => alert('Errore: ' + err.message));
+}
+
 // === POLLING ===
 setInterval(updateStatus, STATUS_INTERVAL);
 setInterval(updateLogs, LOGS_INTERVAL);
 updateStatus();
 updateLogs();
+loadOverlayStatus();

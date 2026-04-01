@@ -9,6 +9,7 @@ import { createApiStatusRouter } from './routes/api-status.js';
 import { createApiConfigRouter } from './routes/api-config.js';
 import { createApiStreamRouter } from './routes/api-stream.js';
 import { createApiLogsRouter } from './routes/api-logs.js';
+import { createApiOverlayRouter } from './routes/api-overlay.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,6 +82,7 @@ export function createWebApp(config: Config, distribution: DistributionManager):
   app.use('/api/config', createApiConfigRouter(config));
   app.use('/api/stream', createApiStreamRouter(distribution, config));
   app.use('/api/logs', createApiLogsRouter());
+  app.use('/api/overlay', createApiOverlayRouter());
 
   return app;
 }
