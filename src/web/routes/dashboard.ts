@@ -6,7 +6,11 @@ export function createDashboardRouter(config: unknown, distribution: Distributio
   const router = Router();
 
   router.get('/', (_req, res) => {
-    const fbDests = getFacebookDestinations();
+    const fbDests = getFacebookDestinations().map((fb) => ({
+      ...fb,
+      page_access_token: undefined,
+      hasToken: !!fb.page_access_token,
+    }));
     const igAccounts = getInstagramAccounts();
 
     res.render('dashboard', {

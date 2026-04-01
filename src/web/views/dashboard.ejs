@@ -58,11 +58,15 @@
           <div class="config-row" data-id="<%= fb.id %>">
             <div class="config-fields">
               <input type="text" value="<%= fb.name %>" placeholder="Nome (es. Pagina 1)" class="fb-name">
-              <input type="text" value="<%= fb.rtmp_url %>" placeholder="RTMP URL" class="fb-url">
-              <input type="text" value="<%= fb.stream_key %>" placeholder="Stream Key" class="fb-key">
+              <input type="text" value="<%= fb.page_id %>" placeholder="Page ID" class="fb-page-id">
+              <input type="text" value="<%= fb.live_title || 'LIVE' %>" placeholder="Titolo Live" class="fb-title">
+              <span class="cookie-status <%= fb.hasToken ? 'cookie-ok' : 'cookie-missing' %>">
+                <%= fb.hasToken ? 'Token OK' : 'No token' %>
+              </span>
             </div>
             <div class="config-actions">
               <button class="btn btn-sm btn-primary" onclick="saveFb(this)">Salva</button>
+              <button class="btn btn-sm" onclick="showTokenUpload(<%= fb.id %>)">Token</button>
               <button class="btn btn-sm btn-danger" onclick="deleteFb(<%= fb.id %>)">X</button>
             </div>
           </div>
@@ -114,6 +118,20 @@
           <button class="btn btn-primary" onclick="uploadCookies()">Salva Cookie</button>
         </div>
         <div id="cookie-result" class="hidden"></div>
+      </div>
+    </div>
+
+    <!-- Facebook Token Modal -->
+    <div id="token-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Page Access Token Facebook</h3>
+        <p>Incolla il Page Access Token ottenuto dal Graph API Explorer:</p>
+        <textarea id="token-input" rows="5" placeholder="EAAxxxxxx..."></textarea>
+        <input type="hidden" id="token-account-id">
+        <div class="modal-actions">
+          <button class="btn" onclick="closeTokenModal()">Annulla</button>
+          <button class="btn btn-primary" onclick="uploadToken()">Salva Token</button>
+        </div>
       </div>
     </div>
 

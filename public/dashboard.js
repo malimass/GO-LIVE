@@ -68,8 +68,9 @@ function addFbRow() {
   row.innerHTML = `
     <div class="config-fields">
       <input type="text" placeholder="Nome (es. Pagina 1)" class="fb-name">
-      <input type="text" value="rtmps://live-api-s.facebook.com:443/rtmp/" placeholder="RTMP URL" class="fb-url">
-      <input type="text" placeholder="Stream Key" class="fb-key">
+      <input type="text" placeholder="Page ID" class="fb-page-id">
+      <input type="text" value="LIVE" placeholder="Titolo Live" class="fb-title">
+      <span class="cookie-status cookie-missing">No token</span>
     </div>
     <div class="config-actions">
       <button class="btn btn-sm btn-primary" onclick="saveFb(this)">Salva</button>
@@ -83,22 +84,78 @@ function saveFb(btn) {
   const row = btn.closest('.config-row');
   const id = row.dataset.id ? parseInt(row.dataset.id) : null;
   const name = row.querySelector('.fb-name').value.trim();
-  const rtmpUrl = row.querySelector('.fb-url').value.trim();
-  const streamKey = row.querySelector('.fb-key').value.trim();
+  const pageId = row.querySelector('.fb-page-id').value.trim();
+  const liveTitle = row.querySelector('.fb-title') ? row.querySelector('.fb-title').value.trim() : 'LIVE';
 
-  if (!name || !streamKey) {
-    alert('Nome e Stream Key sono obbligatori');
+  if (!name || !pageId) {
+    alert('Nome e Page ID sono obbligatori');
     return;
+  }
+
+  // If new row, need token too — prompt to save first then add token
+  const body = { id, name, pageId, liveTitle };
+
+  // For existing rows, don't send token (keep existing)
+  // For new rows, send a placeholder and user adds token after
+  if (!id) {
+    body.pageAccessToken = prompt('Incolla il Page Access Token:');
+    if (!body.pageAccessToken) {
+      alert('Page Access Token obbligatorio');
+      return;
+    }
   }
 
   fetch('/api/config/facebook', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, name, rtmpUrl, streamKey }),
+    body: JSON.stringify(body),
   })
     .then((res) => res.json())
     .then((data) => {
       if (data.success) {
+        location.reload();
+      } else {
+        alert(data.error || 'Errore');
+      }
+    })
+    .catch((err) => alert('Errore: ' + err.message));
+}
+
+// === FACEBOOK TOKEN UPLOAD ===
+function showTokenUpload(accountId) {
+  document.getElementById('token-account-id').value = accountId;
+  document.getElementById('token-input').value = '';
+  document.getElementById('token-modal').classList.remove('hidden');
+}
+
+function closeTokenModal() {
+  document.getElementById('token-modal').classList.add('hidden');
+}
+
+function uploadToken() {
+  const accountId = document.getElementById('token-account-id').value;
+  const token = document.getElementById('token-input').value.trim();
+
+  if (!token) {
+    alert('Incolla un token valido');
+    return;
+  }
+
+  // Get current row data to send full update
+  const row = document.querySelector(`.config-row[data-id="${accountId}"]`);
+  const name = row.querySelector('.fb-name').value.trim();
+  const pageId = row.querySelector('.fb-page-id').value.trim();
+  const liveTitle = row.querySelector('.fb-title') ? row.querySelector('.fb-title').value.trim() : 'LIVE';
+
+  fetch('/api/config/facebook', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: parseInt(accountId), name, pageId, pageAccessToken: token, liveTitle }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.success) {
+        closeTokenModal();
         location.reload();
       } else {
         alert(data.error || 'Errore');

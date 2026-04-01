@@ -14,22 +14,21 @@ export function createApiConfigRouter(config: Config): Router {
   // === FACEBOOK ===
 
   router.get('/facebook', (_req, res) => {
-    res.json(getFacebookDestinations());
+    res.json(getFacebookDestinations().map((fb) => ({
+      ...fb,
+      page_access_token: undefined,
+      hasToken: !!fb.page_access_token,
+    })));
   });
 
   router.post('/facebook', (req, res) => {
     try {
-      const { id, name, rtmpUrl, streamKey } = req.body;
-      if (!name || !streamKey) {
-        res.status(400).json({ error: 'name e streamKey sono obbligatori' });
+      const { id, name, pageId, pageAccessToken, liveTitle } = req.body;
+      if (!name || !pageId || !pageAccessToken) {
+        res.status(400).json({ error: 'name, pageId e pageAccessToken sono obbligatori' });
         return;
       }
-      upsertFacebook(
-        id || null,
-        name,
-        rtmpUrl || 'rtmps://live-api-s.facebook.com:443/rtmp/',
-        streamKey,
-      );
+      upsertFacebook(id || null, name, pageId, pageAccessToken, liveTitle);
       reloadDestinations(config);
       logger.info(`Facebook destination saved: ${name}`);
       res.json({ success: true });
@@ -113,7 +112,11 @@ export function createApiConfigRouter(config: Config): Router {
   // === STATUS ===
   router.get('/', (_req, res) => {
     res.json({
-      facebook: getFacebookDestinations(),
+      facebook: getFacebookDestinations().map((fb) => ({
+        ...fb,
+        page_access_token: undefined,
+        hasToken: !!fb.page_access_token,
+      })),
       instagram: getInstagramAccounts().map((a) => ({
         ...a,
         cookies_enc: undefined,

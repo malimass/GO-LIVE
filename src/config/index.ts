@@ -2,8 +2,9 @@ import { getFacebookDestinations, getInstagramAccounts, getDb } from '../db/inde
 
 export interface FacebookDestination {
   name: string;
-  rtmpUrl: string;
-  streamKey: string;
+  pageId: string;
+  pageAccessToken: string;
+  liveTitle: string;
 }
 
 export interface InstagramAccount {
@@ -62,11 +63,12 @@ export function loadConfig(): Config {
 
 export function loadFacebookFromDb(): FacebookDestination[] {
   return getFacebookDestinations()
-    .filter((row) => row.enabled)
+    .filter((row) => row.enabled && row.page_id && row.page_access_token)
     .map((row) => ({
       name: row.name,
-      rtmpUrl: row.rtmp_url,
-      streamKey: row.stream_key,
+      pageId: row.page_id,
+      pageAccessToken: row.page_access_token,
+      liveTitle: row.live_title || 'LIVE',
     }));
 }
 

@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { FfmpegProcess, type DestinationConfig, type ProcessStatus, type FfmpegHealth } from './ffmpeg-process.js';
 import { InstagramKeyExtractor } from '../instagram/key-extractor.js';
+import { FacebookBroadcastManager } from '../facebook/broadcast-manager.js';
 import { CookieManager } from '../instagram/cookie-manager.js';
 import { logger } from '../logging/logger.js';
 import type { Config } from '../config/index.js';
@@ -15,6 +16,7 @@ export interface DestinationStatus {
 export class DistributionManager extends EventEmitter {
   private processes: FfmpegProcess[] = [];
   private igExtractors: InstagramKeyExtractor[] = [];
+  private fbManagers: FacebookBroadcastManager[] = [];
   private cookieManager: CookieManager;
   private config: Config;
   private _isLive = false;
@@ -30,10 +32,12 @@ export class DistributionManager extends EventEmitter {
     return this._isLive;
   }
 
+  private fbNames = new Set<string>();
+
   getStatuses(): DestinationStatus[] {
     return this.processes.map((p) => ({
       name: p.destination.name,
-      platform: p.destination.name.toLowerCase().startsWith('facebook') ? 'facebook' as const : 'instagram' as const,
+      platform: this.fbNames.has(p.destination.name) ? 'facebook' as const : 'instagram' as const,
       status: p.status,
       health: p.health,
     }));
@@ -51,12 +55,30 @@ export class DistributionManager extends EventEmitter {
 
     logger.info(`Starting distribution from ${streamPath}`);
 
-    // Build Facebook destinations (immediate — keys already known)
-    const fbDestinations: DestinationConfig[] = this.config.facebook.map((fb) => ({
-      name: fb.name,
-      rtmpUrl: fb.rtmpUrl,
-      streamKey: fb.streamKey,
-    }));
+    // Create Facebook live broadcasts via Graph API
+    this.fbNames.clear();
+    const fbDestinations: DestinationConfig[] = [];
+    for (const fb of this.config.facebook) {
+      try {
+        logger.info(`Creating Facebook live for ${fb.name}...`);
+        const manager = new FacebookBroadcastManager(fb.pageId, fb.name, fb.pageAccessToken, fb.liveTitle);
+        const result = await manager.createBroadcast();
+
+        fbDestinations.push({
+          name: fb.name,
+          rtmpUrl: result.url,
+          streamKey: result.key,
+        });
+
+        this.fbManagers.push(manager);
+        this.fbNames.add(fb.name);
+        logger.info(`Got stream URL for Facebook ${fb.name}`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.error(`Failed to create FB live for ${fb.name}: ${msg}`);
+        this.emit('fb-error', { name: fb.name, error: msg });
+      }
+    }
 
     // Extract Instagram stream keys via Playwright
     const igDestinations: DestinationConfig[] = [];
@@ -143,7 +165,18 @@ export class DistributionManager extends EventEmitter {
     }
     this.processes = [];
 
-    // Close all Instagram Playwright sessions
+    // End all Facebook live broadcasts
+    for (const manager of this.fbManagers) {
+      try {
+        await manager.endBroadcast();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.error(`Error ending FB live: ${msg}`);
+      }
+    }
+    this.fbManagers = [];
+
+    // Close all Instagram sessions
     for (const extractor of this.igExtractors) {
       try {
         await extractor.endLive();

@@ -26,6 +26,9 @@ function initSchema(db: Database.Database): void {
   // Migrations for existing DBs
   try { db.exec(`ALTER TABLE instagram_accounts ADD COLUMN live_title TEXT NOT NULL DEFAULT 'LIVE'`); } catch { /* exists */ }
   try { db.exec(`ALTER TABLE instagram_accounts ADD COLUMN audience TEXT NOT NULL DEFAULT 'public'`); } catch { /* exists */ }
+  try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN page_id TEXT NOT NULL DEFAULT ''`); } catch { /* exists */ }
+  try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN page_access_token TEXT NOT NULL DEFAULT ''`); } catch { /* exists */ }
+  try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN live_title TEXT NOT NULL DEFAULT 'LIVE'`); } catch { /* exists */ }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
@@ -74,6 +77,9 @@ export interface FacebookRow {
   name: string;
   rtmp_url: string;
   stream_key: string;
+  page_id: string;
+  page_access_token: string;
+  live_title: string;
   enabled: number;
 }
 
@@ -81,11 +87,12 @@ export function getFacebookDestinations(): FacebookRow[] {
   return getDb().prepare('SELECT * FROM facebook_destinations ORDER BY id').all() as FacebookRow[];
 }
 
-export function upsertFacebook(id: number | null, name: string, rtmpUrl: string, streamKey: string): void {
+export function upsertFacebook(id: number | null, name: string, pageId: string, pageAccessToken: string, liveTitle?: string): void {
+  const title = liveTitle || 'LIVE';
   if (id) {
-    getDb().prepare("UPDATE facebook_destinations SET name = ?, rtmp_url = ?, stream_key = ?, updated_at = datetime('now') WHERE id = ?").run(name, rtmpUrl, streamKey, id);
+    getDb().prepare("UPDATE facebook_destinations SET name = ?, page_id = ?, page_access_token = ?, live_title = ?, updated_at = datetime('now') WHERE id = ?").run(name, pageId, pageAccessToken, title, id);
   } else {
-    getDb().prepare('INSERT INTO facebook_destinations (name, rtmp_url, stream_key) VALUES (?, ?, ?)').run(name, rtmpUrl, streamKey);
+    getDb().prepare('INSERT INTO facebook_destinations (name, page_id, page_access_token, live_title, stream_key) VALUES (?, ?, ?, ?, ?)').run(name, pageId, pageAccessToken, title, '');
   }
 }
 
