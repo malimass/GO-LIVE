@@ -24,11 +24,24 @@ export function createApiConfigRouter(config: Config): Router {
   router.post('/facebook', (req, res) => {
     try {
       const { id, name, pageId, pageAccessToken, liveTitle } = req.body;
-      if (!name || !pageId || !pageAccessToken) {
-        res.status(400).json({ error: 'name, pageId e pageAccessToken sono obbligatori' });
+      if (!name || !pageId) {
+        res.status(400).json({ error: 'name e pageId sono obbligatori' });
         return;
       }
-      upsertFacebook(id || null, name, pageId, pageAccessToken, liveTitle);
+
+      // For new entries, token is required
+      // For updates, if token not provided, keep existing
+      let token = pageAccessToken;
+      if (id && !token) {
+        const existing = getFacebookDestinations().find((fb) => fb.id === id);
+        token = existing?.page_access_token || '';
+      }
+      if (!token) {
+        res.status(400).json({ error: 'pageAccessToken è obbligatorio' });
+        return;
+      }
+
+      upsertFacebook(id || null, name, pageId, token, liveTitle);
       reloadDestinations(config);
       logger.info(`Facebook destination saved: ${name}`);
       res.json({ success: true });
