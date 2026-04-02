@@ -53,6 +53,8 @@ export class FfmpegProcess extends EventEmitter {
     const outputUrl = `${this.destination.rtmpUrl}${this.destination.streamKey}`;
 
     const args = [
+      '-fflags', 'nobuffer',
+      '-flags', 'low_delay',
       '-rw_timeout', '10000000',
       '-i', this.inputUrl,
       '-c:v', 'copy',

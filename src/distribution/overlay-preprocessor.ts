@@ -26,6 +26,8 @@ export class OverlayPreprocessor extends EventEmitter {
     logger.info('[Overlay] Starting preprocessor');
 
     const args = [
+      '-fflags', 'nobuffer',
+      '-flags', 'low_delay',
       '-rw_timeout', '10000000',
       '-i', this.inputUrl,
       '-i', this.overlayPath,
@@ -33,10 +35,10 @@ export class OverlayPreprocessor extends EventEmitter {
       '-c:v', 'libx264',
       '-preset', 'ultrafast',
       '-tune', 'zerolatency',
-      '-b:v', '2000k',
-      '-maxrate', '2500k',
-      '-bufsize', '4000k',
-      '-g', '60',
+      '-b:v', '2500k',
+      '-maxrate', '3000k',
+      '-bufsize', '1500k',
+      '-g', '30',
       '-c:a', 'copy',
       '-f', 'flv',
       '-flvflags', 'no_duration_filesize',
