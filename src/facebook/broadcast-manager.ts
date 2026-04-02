@@ -11,7 +11,7 @@ interface FbCreateLiveResponse {
   secure_stream_url: string;
 }
 
-const FB_GRAPH_URL = 'https://graph.facebook.com/v19.0';
+const FB_GRAPH_URL = 'https://graph.facebook.com/v25.0';
 
 export class FacebookBroadcastManager {
   private pageId: string;
