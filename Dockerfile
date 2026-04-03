@@ -22,10 +22,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install static ffmpeg built with OpenSSL (GnuTLS version has TLS issues with Facebook RTMPS)
-RUN wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
-    && tar xf ffmpeg-release-amd64-static.tar.xz \
-    && mv ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/ffmpeg \
-    && mv ffmpeg-*-amd64-static/ffprobe /usr/local/bin/ffprobe \
+RUN wget -q https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz \
+    && tar xf ffmpeg-master-latest-linux64-gpl.tar.xz \
+    && mv ffmpeg-master-latest-linux64-gpl/bin/ffmpeg /usr/local/bin/ffmpeg \
+    && mv ffmpeg-master-latest-linux64-gpl/bin/ffprobe /usr/local/bin/ffprobe \
     && rm -rf ffmpeg-*
 
 COPY package.json package-lock.json* ./
