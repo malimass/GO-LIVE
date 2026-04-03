@@ -81,6 +81,7 @@ export class FfmpegProcess extends EventEmitter {
 
     this.process.on('close', (code) => {
       this.process = null;
+      const lastLines = this.stderrBuffer.filter(l => l.length > 0).join('\n');
 
       if (this._status === 'stopped') {
         logger.info(`[${this.destination.name}] Stopped gracefully`);
@@ -88,11 +89,12 @@ export class FfmpegProcess extends EventEmitter {
       }
 
       if (code !== 0) {
-        const lastLines = this.stderrBuffer.filter(l => l.length > 0).join('\n');
         logger.error(`[${this.destination.name}] Exited with code ${code}. ffmpeg output:\n${lastLines}`);
-        this._status = 'error';
-        this.attemptRestart();
+      } else {
+        logger.warn(`[${this.destination.name}] Exited unexpectedly with code 0. ffmpeg output:\n${lastLines}`);
       }
+      this._status = 'error';
+      this.attemptRestart();
     });
 
     this.process.on('error', (err) => {
