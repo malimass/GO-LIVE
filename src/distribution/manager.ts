@@ -5,6 +5,7 @@ import { FfmpegProcess, type DestinationConfig, type ProcessStatus, type FfmpegH
 import { OverlayPreprocessor } from './overlay-preprocessor.js';
 import { InstagramKeyExtractor } from '../instagram/key-extractor.js';
 import { FacebookBroadcastManager } from '../facebook/broadcast-manager.js';
+import { FacebookCookieBroadcaster } from '../facebook/cookie-broadcaster.js';
 import { CookieManager } from '../instagram/cookie-manager.js';
 import { logger } from '../logging/logger.js';
 import type { Config } from '../config/index.js';
@@ -94,6 +95,20 @@ export class DistributionManager extends EventEmitter {
             rtmpUrl: fb.rtmpUrl,
             streamKey: fb.streamKey,
           });
+        } else if (fb.mode === 'cookie') {
+          // Cookie-based mode — bypass app restrictions
+          logger.info(`[FB:${fb.name}] Creating live via cookie auth`);
+          const cookies = this.cookieManager.decryptCookies(fb.cookiesEnc);
+          const broadcaster = new FacebookCookieBroadcaster(fb.pageId, fb.name, cookies, fb.liveTitle, fb.liveDescription);
+          const result = await broadcaster.createBroadcast();
+
+          fbDestinations.push({
+            name: fb.name,
+            rtmpUrl: result.url,
+            streamKey: result.key,
+          });
+
+          this.fbManagers.push(broadcaster as any);
         } else {
           // Graph API mode — create live broadcast
           logger.info(`Creating Facebook live for ${fb.name}...`);

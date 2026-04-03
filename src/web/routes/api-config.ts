@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { CookieManager } from '../../instagram/cookie-manager.js';
 import { logger } from '../../logging/logger.js';
 import {
-  getFacebookDestinations, upsertFacebook, deleteFacebook,
+  getFacebookDestinations, upsertFacebook, updateFacebookCookies, deleteFacebook,
   getInstagramAccounts, upsertInstagram, updateInstagramCookies, deleteInstagram,
 } from '../../db/index.js';
 import { reloadDestinations, type Config } from '../../config/index.js';
@@ -25,7 +25,7 @@ export function createApiConfigRouter(config: Config): Router {
   router.post('/facebook', (req, res) => {
     try {
       const { id, name, mode, pageId, pageAccessToken, rtmpUrl, streamKey, liveTitle } = req.body;
-      const fbMode = mode === 'stream_key' ? 'stream_key' : 'api';
+      const fbMode = mode === 'stream_key' ? 'stream_key' : mode === 'cookie' ? 'cookie' : 'api';
 
       if (!name) {
         res.status(400).json({ error: 'name è obbligatorio' });
@@ -42,6 +42,16 @@ export function createApiConfigRouter(config: Config): Router {
           id: id || null, name, mode: 'stream_key',
           rtmpUrl: rtmpUrl || 'rtmps://live-api-s.facebook.com:443/rtmp/',
           streamKey, liveTitle,
+        });
+      } else if (fbMode === 'cookie') {
+        // Cookie mode: need pageId + cookies
+        if (!pageId) {
+          res.status(400).json({ error: 'Page ID è obbligatorio' });
+          return;
+        }
+        upsertFacebook({
+          id: id || null, name, mode: 'cookie',
+          pageId, liveTitle, liveDescription: req.body.liveDescription,
         });
       } else {
         // API mode: need pageId + pageAccessToken
@@ -66,6 +76,27 @@ export function createApiConfigRouter(config: Config): Router {
 
       reloadDestinations(config);
       logger.info(`Facebook destination saved: ${name}`);
+      res.json({ success: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: msg });
+    }
+  });
+
+  router.post('/facebook/:id/cookies', (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const { cookies } = req.body;
+
+      if (!cookies || !Array.isArray(cookies)) {
+        res.status(400).json({ error: 'cookies deve essere un array di cookie objects' });
+        return;
+      }
+
+      const encrypted = cookieManager.encryptCookies(cookies);
+      updateFacebookCookies(id, encrypted);
+      reloadDestinations(config);
+      logger.info(`Cookies updated for Facebook destination #${id}`);
       res.json({ success: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

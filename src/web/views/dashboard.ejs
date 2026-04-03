@@ -69,11 +69,18 @@
             <div class="config-fields">
               <input type="text" value="<%= fb.name %>" placeholder="Nome (es. Pagina 1)" class="fb-name">
               <select class="fb-mode" onchange="toggleFbMode(this)">
-                <option value="api" <%= (fb.mode || 'api') === 'api' ? 'selected' : '' %>>Graph API</option>
+                <option value="cookie" <%= fb.mode === 'cookie' ? 'selected' : '' %>>Cookie (auto)</option>
                 <option value="stream_key" <%= fb.mode === 'stream_key' ? 'selected' : '' %>>Stream Key</option>
+                <option value="api" <%= (fb.mode || 'api') === 'api' ? 'selected' : '' %>>Graph API</option>
               </select>
               <input type="text" value="<%= fb.live_title || 'LIVE' %>" placeholder="Titolo Live" class="fb-title">
-              <div class="fb-api-fields" style="<%= fb.mode === 'stream_key' ? 'display:none' : '' %>">
+              <div class="fb-cookie-fields" style="<%= fb.mode === 'cookie' ? '' : 'display:none' %>">
+                <input type="text" value="<%= fb.page_id %>" placeholder="Page ID" class="fb-page-id-cookie">
+                <span class="cookie-status <%= fb.cookies_enc ? 'cookie-ok' : 'cookie-missing' %>">
+                  <%= fb.cookies_enc ? 'Cookie OK' : 'No cookie' %>
+                </span>
+              </div>
+              <div class="fb-api-fields" style="<%= fb.mode === 'api' ? '' : 'display:none' %>">
                 <input type="text" value="<%= fb.page_id %>" placeholder="Page ID" class="fb-page-id">
                 <span class="cookie-status <%= fb.hasToken ? 'cookie-ok' : 'cookie-missing' %>">
                   <%= fb.hasToken ? 'Token OK' : 'No token' %>
@@ -89,7 +96,8 @@
             </div>
             <div class="config-actions">
               <button class="btn btn-sm btn-primary" onclick="saveFb(this)">Salva</button>
-              <button class="btn btn-sm fb-token-btn" onclick="showTokenUpload(<%= fb.id %>)" style="<%= fb.mode === 'stream_key' ? 'display:none' : '' %>">Token</button>
+              <button class="btn btn-sm fb-token-btn" onclick="showTokenUpload(<%= fb.id %>)" style="<%= fb.mode === 'api' ? '' : 'display:none' %>">Token</button>
+              <button class="btn btn-sm fb-cookie-btn" onclick="showFbCookieUpload(<%= fb.id %>)" style="<%= fb.mode === 'cookie' ? '' : 'display:none' %>">Cookie</button>
               <button class="btn btn-sm btn-danger" onclick="deleteFb(<%= fb.id %>)">X</button>
             </div>
           </div>
@@ -170,6 +178,20 @@
         <div class="modal-actions">
           <button class="btn" onclick="closeTokenModal()">Annulla</button>
           <button class="btn btn-primary" onclick="uploadToken()">Salva Token</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Facebook Cookie Upload Modal -->
+    <div id="fb-cookie-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Cookie Facebook</h3>
+        <p>Incolla i cookie esportati dal browser (formato JSON array). Servono i cookie di un admin della pagina.</p>
+        <textarea id="fb-cookie-input" rows="10" placeholder='[{"name":"c_user","value":"...","domain":".facebook.com",...}]'></textarea>
+        <input type="hidden" id="fb-cookie-account-id">
+        <div class="modal-actions">
+          <button class="btn" onclick="closeFbCookieModal()">Annulla</button>
+          <button class="btn btn-primary" onclick="uploadFbCookies()">Salva Cookie</button>
         </div>
       </div>
     </div>

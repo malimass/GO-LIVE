@@ -30,6 +30,8 @@ function initSchema(db: Database.Database): void {
   try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN page_access_token TEXT NOT NULL DEFAULT ''`); } catch { /* exists */ }
   try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN live_title TEXT NOT NULL DEFAULT 'LIVE'`); } catch { /* exists */ }
   try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN mode TEXT NOT NULL DEFAULT 'api'`); } catch { /* exists */ }
+  try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN cookies_enc TEXT`); } catch { /* exists */ }
+  try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN live_description TEXT NOT NULL DEFAULT ''`); } catch { /* exists */ }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
@@ -81,7 +83,8 @@ export interface FacebookRow {
   page_id: string;
   page_access_token: string;
   live_title: string;
-  mode: 'api' | 'stream_key';
+  mode: 'api' | 'stream_key' | 'cookie';
+  cookies_enc: string | null;
   enabled: number;
 }
 
@@ -92,12 +95,13 @@ export function getFacebookDestinations(): FacebookRow[] {
 export interface UpsertFacebookParams {
   id?: number | null;
   name: string;
-  mode: 'api' | 'stream_key';
+  mode: 'api' | 'stream_key' | 'cookie';
   pageId?: string;
   pageAccessToken?: string;
   rtmpUrl?: string;
   streamKey?: string;
   liveTitle?: string;
+  liveDescription?: string;
 }
 
 export function upsertFacebook(params: UpsertFacebookParams): void {
@@ -115,6 +119,10 @@ export function upsertFacebook(params: UpsertFacebookParams): void {
     getDb().prepare('INSERT INTO facebook_destinations (name, mode, page_id, page_access_token, rtmp_url, stream_key, live_title) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(name, mode, pageId, pageAccessToken, rtmpUrl, streamKey, title);
   }
+}
+
+export function updateFacebookCookies(id: number, cookiesEnc: string): void {
+  getDb().prepare("UPDATE facebook_destinations SET cookies_enc = ?, updated_at = datetime('now') WHERE id = ?").run(cookiesEnc, id);
 }
 
 export function deleteFacebook(id: number): void {

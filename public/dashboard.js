@@ -118,9 +118,14 @@ function toggleFbMode(select) {
   const skFields = row.querySelector('.fb-sk-fields');
   const tokenBtn = row.querySelector('.fb-token-btn');
 
-  if (apiFields) apiFields.style.display = mode === 'stream_key' ? 'none' : '';
+  const cookieFields = row.querySelector('.fb-cookie-fields');
+  const cookieBtn = row.querySelector('.fb-cookie-btn');
+
+  if (apiFields) apiFields.style.display = mode === 'api' ? '' : 'none';
   if (skFields) skFields.style.display = mode === 'stream_key' ? '' : 'none';
-  if (tokenBtn) tokenBtn.style.display = mode === 'stream_key' ? 'none' : '';
+  if (cookieFields) cookieFields.style.display = mode === 'cookie' ? '' : 'none';
+  if (tokenBtn) tokenBtn.style.display = mode === 'api' ? '' : 'none';
+  if (cookieBtn) cookieBtn.style.display = mode === 'cookie' ? '' : 'none';
 }
 
 // === FACEBOOK CRUD ===
@@ -129,20 +134,25 @@ function addFbRow() {
   const row = document.createElement('div');
   row.className = 'config-row';
   row.dataset.id = '';
-  row.dataset.mode = 'stream_key';
+  row.dataset.mode = 'cookie';
   row.innerHTML = `
     <div class="config-fields">
       <input type="text" placeholder="Nome (es. Pagina 1)" class="fb-name">
       <select class="fb-mode" onchange="toggleFbMode(this)">
+        <option value="cookie" selected>Cookie (auto)</option>
+        <option value="stream_key">Stream Key</option>
         <option value="api">Graph API</option>
-        <option value="stream_key" selected>Stream Key</option>
       </select>
       <input type="text" value="LIVE" placeholder="Titolo Live" class="fb-title">
+      <div class="fb-cookie-fields">
+        <input type="text" placeholder="Page ID" class="fb-page-id-cookie">
+        <span class="cookie-status cookie-missing">No cookie</span>
+      </div>
       <div class="fb-api-fields" style="display:none">
         <input type="text" placeholder="Page ID" class="fb-page-id">
         <span class="cookie-status cookie-missing">No token</span>
       </div>
-      <div class="fb-sk-fields">
+      <div class="fb-sk-fields" style="display:none">
         <input type="text" value="rtmps://live-api-s.facebook.com:443/rtmp/" placeholder="RTMP URL" class="fb-rtmp-url">
         <input type="text" placeholder="Stream Key" class="fb-stream-key">
         <span class="cookie-status cookie-missing">No key</span>
@@ -175,6 +185,12 @@ function saveFb(btn) {
     body.streamKey = row.querySelector('.fb-stream-key') ? row.querySelector('.fb-stream-key').value.trim() : '';
     if (!body.streamKey) {
       alert('Stream Key è obbligatoria');
+      return;
+    }
+  } else if (mode === 'cookie') {
+    body.pageId = row.querySelector('.fb-page-id-cookie') ? row.querySelector('.fb-page-id-cookie').value.trim() : '';
+    if (!body.pageId) {
+      alert('Page ID è obbligatorio');
       return;
     }
   } else {
@@ -413,6 +429,47 @@ function removeOverlay() {
     .then((res) => res.json())
     .then((data) => {
       if (data.success) loadOverlayStatus();
+    })
+    .catch((err) => alert('Errore: ' + err.message));
+}
+
+// === FACEBOOK COOKIE UPLOAD ===
+function showFbCookieUpload(accountId) {
+  document.getElementById('fb-cookie-account-id').value = accountId;
+  document.getElementById('fb-cookie-input').value = '';
+  document.getElementById('fb-cookie-modal').classList.remove('hidden');
+}
+
+function closeFbCookieModal() {
+  document.getElementById('fb-cookie-modal').classList.add('hidden');
+}
+
+function uploadFbCookies() {
+  const accountId = document.getElementById('fb-cookie-account-id').value;
+  const rawCookies = document.getElementById('fb-cookie-input').value.trim();
+
+  let cookies;
+  try {
+    cookies = JSON.parse(rawCookies);
+    if (!Array.isArray(cookies)) throw new Error('Must be array');
+  } catch (e) {
+    alert('Cookie non validi. Incolla un JSON array valido.');
+    return;
+  }
+
+  fetch(`/api/config/facebook/${accountId}/cookies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cookies }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.success) {
+        closeFbCookieModal();
+        location.reload();
+      } else {
+        alert(data.error || 'Errore');
+      }
     })
     .catch((err) => alert('Errore: ' + err.message));
 }
