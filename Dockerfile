@@ -12,13 +12,21 @@ RUN npx tsc
 FROM node:20-slim
 WORKDIR /app
 
-# Install ffmpeg and build tools for native modules (better-sqlite3)
+# Install build tools for native modules (better-sqlite3) and wget for ffmpeg
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
     python3 \
     make \
     g++ \
+    wget \
+    xz-utils \
     && rm -rf /var/lib/apt/lists/*
+
+# Install static ffmpeg built with OpenSSL (GnuTLS version has TLS issues with Facebook RTMPS)
+RUN wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
+    && tar xf ffmpeg-release-amd64-static.tar.xz \
+    && mv ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/ffmpeg \
+    && mv ffmpeg-*-amd64-static/ffprobe /usr/local/bin/ffprobe \
+    && rm -rf ffmpeg-*
 
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
