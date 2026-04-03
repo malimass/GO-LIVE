@@ -56,7 +56,8 @@ export class FacebookBroadcastManager {
     }
 
     this.liveVideoId = data.id;
-    const streamUrl = data.secure_stream_url || data.stream_url;
+    // Prefer non-TLS RTMP — GnuTLS-built ffmpeg has issues with Facebook's RTMPS endpoint
+    const streamUrl = data.stream_url || data.secure_stream_url;
 
     // Parse: rtmps://host:443/rtmp/KEY?params
     const rtmpMatch = streamUrl.match(/^(rtmps?:\/\/[^/]+\/rtmp\/)(.+)$/);
