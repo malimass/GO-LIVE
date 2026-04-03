@@ -11,6 +11,7 @@ export function createDashboardRouter(config: unknown, distribution: Distributio
       page_access_token: undefined,
       hasToken: !!fb.page_access_token,
       hasStreamKey: !!fb.stream_key,
+      live_description: (fb as any).live_description || '',
     }));
     const igAccounts = getInstagramAccounts();
 

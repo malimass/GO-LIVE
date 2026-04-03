@@ -105,19 +105,20 @@ export interface UpsertFacebookParams {
 }
 
 export function upsertFacebook(params: UpsertFacebookParams): void {
-  const { id, name, mode, liveTitle } = params;
+  const { id, name, mode, liveTitle, liveDescription } = params;
   const title = liveTitle || 'LIVE';
+  const description = liveDescription || '';
   const pageId = params.pageId || '';
   const pageAccessToken = params.pageAccessToken || '';
   const rtmpUrl = params.rtmpUrl || 'rtmps://live-api-s.facebook.com:443/rtmp/';
   const streamKey = params.streamKey || '';
 
   if (id) {
-    getDb().prepare("UPDATE facebook_destinations SET name = ?, mode = ?, page_id = ?, page_access_token = ?, rtmp_url = ?, stream_key = ?, live_title = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(name, mode, pageId, pageAccessToken, rtmpUrl, streamKey, title, id);
+    getDb().prepare("UPDATE facebook_destinations SET name = ?, mode = ?, page_id = ?, page_access_token = ?, rtmp_url = ?, stream_key = ?, live_title = ?, live_description = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(name, mode, pageId, pageAccessToken, rtmpUrl, streamKey, title, description, id);
   } else {
-    getDb().prepare('INSERT INTO facebook_destinations (name, mode, page_id, page_access_token, rtmp_url, stream_key, live_title) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(name, mode, pageId, pageAccessToken, rtmpUrl, streamKey, title);
+    getDb().prepare('INSERT INTO facebook_destinations (name, mode, page_id, page_access_token, rtmp_url, stream_key, live_title, live_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(name, mode, pageId, pageAccessToken, rtmpUrl, streamKey, title, description);
   }
 }
 

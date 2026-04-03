@@ -121,11 +121,14 @@ function toggleFbMode(select) {
   const cookieFields = row.querySelector('.fb-cookie-fields');
   const cookieBtn = row.querySelector('.fb-cookie-btn');
 
+  const descField = row.querySelector('.fb-description');
+
   if (apiFields) apiFields.style.display = mode === 'api' ? '' : 'none';
   if (skFields) skFields.style.display = mode === 'stream_key' ? '' : 'none';
   if (cookieFields) cookieFields.style.display = mode === 'cookie' ? '' : 'none';
   if (tokenBtn) tokenBtn.style.display = mode === 'api' ? '' : 'none';
   if (cookieBtn) cookieBtn.style.display = mode === 'cookie' ? '' : 'none';
+  if (descField) descField.style.display = mode === 'cookie' ? '' : 'none';
 }
 
 // === FACEBOOK CRUD ===
@@ -144,6 +147,7 @@ function addFbRow() {
         <option value="api">Graph API</option>
       </select>
       <input type="text" value="LIVE" placeholder="Titolo Live" class="fb-title">
+      <input type="text" placeholder="Descrizione Live" class="fb-description">
       <div class="fb-cookie-fields">
         <input type="text" placeholder="Page ID" class="fb-page-id-cookie">
         <span class="cookie-status cookie-missing">No cookie</span>
@@ -189,6 +193,7 @@ function saveFb(btn) {
     }
   } else if (mode === 'cookie') {
     body.pageId = row.querySelector('.fb-page-id-cookie') ? row.querySelector('.fb-page-id-cookie').value.trim() : '';
+    body.liveDescription = row.querySelector('.fb-description') ? row.querySelector('.fb-description').value.trim() : '';
     if (!body.pageId) {
       alert('Page ID è obbligatorio');
       return;

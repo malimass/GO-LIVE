@@ -74,6 +74,7 @@
                 <option value="api" <%= (fb.mode || 'api') === 'api' ? 'selected' : '' %>>Graph API</option>
               </select>
               <input type="text" value="<%= fb.live_title || 'LIVE' %>" placeholder="Titolo Live" class="fb-title">
+              <input type="text" value="<%= fb.live_description || '' %>" placeholder="Descrizione Live" class="fb-description" style="<%= fb.mode === 'cookie' ? '' : 'display:none' %>">
               <div class="fb-cookie-fields" style="<%= fb.mode === 'cookie' ? '' : 'display:none' %>">
                 <input type="text" value="<%= fb.page_id %>" placeholder="Page ID" class="fb-page-id-cookie">
                 <span class="cookie-status <%= fb.cookies_enc ? 'cookie-ok' : 'cookie-missing' %>">
