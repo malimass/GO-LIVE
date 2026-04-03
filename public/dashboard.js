@@ -121,14 +121,11 @@ function toggleFbMode(select) {
   const cookieFields = row.querySelector('.fb-cookie-fields');
   const cookieBtn = row.querySelector('.fb-cookie-btn');
 
-  const descField = row.querySelector('.fb-description');
-
   if (apiFields) apiFields.style.display = mode === 'api' ? '' : 'none';
   if (skFields) skFields.style.display = mode === 'stream_key' ? '' : 'none';
   if (cookieFields) cookieFields.style.display = mode === 'cookie' ? '' : 'none';
   if (tokenBtn) tokenBtn.style.display = mode === 'api' ? '' : 'none';
   if (cookieBtn) cookieBtn.style.display = mode === 'cookie' ? '' : 'none';
-  if (descField) descField.style.display = mode === 'cookie' ? '' : 'none';
 }
 
 // === FACEBOOK CRUD ===
