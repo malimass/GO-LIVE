@@ -81,22 +81,33 @@ export class DistributionManager extends EventEmitter {
       await new Promise((resolve) => setTimeout(resolve, 3000));
     }
 
-    // Create Facebook live broadcasts via Graph API
+    // Create Facebook live broadcasts via Graph API or use static stream keys
     this.fbNames.clear();
     const fbDestinations: DestinationConfig[] = [];
     for (const fb of this.config.facebook) {
       try {
-        logger.info(`Creating Facebook live for ${fb.name}...`);
-        const manager = new FacebookBroadcastManager(fb.pageId, fb.name, fb.pageAccessToken, fb.liveTitle);
-        const result = await manager.createBroadcast();
+        if (fb.mode === 'stream_key') {
+          // Static stream key — no Graph API needed
+          logger.info(`[FB:${fb.name}] Using permanent stream key`);
+          fbDestinations.push({
+            name: fb.name,
+            rtmpUrl: fb.rtmpUrl,
+            streamKey: fb.streamKey,
+          });
+        } else {
+          // Graph API mode — create live broadcast
+          logger.info(`Creating Facebook live for ${fb.name}...`);
+          const manager = new FacebookBroadcastManager(fb.pageId, fb.name, fb.pageAccessToken, fb.liveTitle);
+          const result = await manager.createBroadcast();
 
-        fbDestinations.push({
-          name: fb.name,
-          rtmpUrl: result.url,
-          streamKey: result.key,
-        });
+          fbDestinations.push({
+            name: fb.name,
+            rtmpUrl: result.url,
+            streamKey: result.key,
+          });
 
-        this.fbManagers.push(manager);
+          this.fbManagers.push(manager);
+        }
         this.fbNames.add(fb.name);
         logger.info(`Got stream URL for Facebook ${fb.name}`);
       } catch (err) {

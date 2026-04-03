@@ -18,30 +18,52 @@ export function createApiConfigRouter(config: Config): Router {
       ...fb,
       page_access_token: undefined,
       hasToken: !!fb.page_access_token,
+      hasStreamKey: !!fb.stream_key,
     })));
   });
 
   router.post('/facebook', (req, res) => {
     try {
-      const { id, name, pageId, pageAccessToken, liveTitle } = req.body;
-      if (!name || !pageId) {
-        res.status(400).json({ error: 'name e pageId sono obbligatori' });
+      const { id, name, mode, pageId, pageAccessToken, rtmpUrl, streamKey, liveTitle } = req.body;
+      const fbMode = mode === 'stream_key' ? 'stream_key' : 'api';
+
+      if (!name) {
+        res.status(400).json({ error: 'name è obbligatorio' });
         return;
       }
 
-      // For new entries, token is required
-      // For updates, if token not provided, keep existing
-      let token = pageAccessToken;
-      if (id && !token) {
-        const existing = getFacebookDestinations().find((fb) => fb.id === id);
-        token = existing?.page_access_token || '';
-      }
-      if (!token) {
-        res.status(400).json({ error: 'pageAccessToken è obbligatorio' });
-        return;
+      if (fbMode === 'stream_key') {
+        // Stream key mode: need rtmpUrl + streamKey
+        if (!streamKey) {
+          res.status(400).json({ error: 'Stream Key è obbligatoria' });
+          return;
+        }
+        upsertFacebook({
+          id: id || null, name, mode: 'stream_key',
+          rtmpUrl: rtmpUrl || 'rtmps://live-api-s.facebook.com:443/rtmp/',
+          streamKey, liveTitle,
+        });
+      } else {
+        // API mode: need pageId + pageAccessToken
+        if (!pageId) {
+          res.status(400).json({ error: 'Page ID è obbligatorio' });
+          return;
+        }
+        let token = pageAccessToken;
+        if (id && !token) {
+          const existing = getFacebookDestinations().find((fb) => fb.id === id);
+          token = existing?.page_access_token || '';
+        }
+        if (!token) {
+          res.status(400).json({ error: 'pageAccessToken è obbligatorio' });
+          return;
+        }
+        upsertFacebook({
+          id: id || null, name, mode: 'api',
+          pageId, pageAccessToken: token, liveTitle,
+        });
       }
 
-      upsertFacebook(id || null, name, pageId, token, liveTitle);
       reloadDestinations(config);
       logger.info(`Facebook destination saved: ${name}`);
       res.json({ success: true });

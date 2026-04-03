@@ -29,6 +29,7 @@ function initSchema(db: Database.Database): void {
   try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN page_id TEXT NOT NULL DEFAULT ''`); } catch { /* exists */ }
   try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN page_access_token TEXT NOT NULL DEFAULT ''`); } catch { /* exists */ }
   try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN live_title TEXT NOT NULL DEFAULT 'LIVE'`); } catch { /* exists */ }
+  try { db.exec(`ALTER TABLE facebook_destinations ADD COLUMN mode TEXT NOT NULL DEFAULT 'api'`); } catch { /* exists */ }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
@@ -80,6 +81,7 @@ export interface FacebookRow {
   page_id: string;
   page_access_token: string;
   live_title: string;
+  mode: 'api' | 'stream_key';
   enabled: number;
 }
 
@@ -87,12 +89,31 @@ export function getFacebookDestinations(): FacebookRow[] {
   return getDb().prepare('SELECT * FROM facebook_destinations ORDER BY id').all() as FacebookRow[];
 }
 
-export function upsertFacebook(id: number | null, name: string, pageId: string, pageAccessToken: string, liveTitle?: string): void {
+export interface UpsertFacebookParams {
+  id?: number | null;
+  name: string;
+  mode: 'api' | 'stream_key';
+  pageId?: string;
+  pageAccessToken?: string;
+  rtmpUrl?: string;
+  streamKey?: string;
+  liveTitle?: string;
+}
+
+export function upsertFacebook(params: UpsertFacebookParams): void {
+  const { id, name, mode, liveTitle } = params;
   const title = liveTitle || 'LIVE';
+  const pageId = params.pageId || '';
+  const pageAccessToken = params.pageAccessToken || '';
+  const rtmpUrl = params.rtmpUrl || 'rtmps://live-api-s.facebook.com:443/rtmp/';
+  const streamKey = params.streamKey || '';
+
   if (id) {
-    getDb().prepare("UPDATE facebook_destinations SET name = ?, page_id = ?, page_access_token = ?, live_title = ?, updated_at = datetime('now') WHERE id = ?").run(name, pageId, pageAccessToken, title, id);
+    getDb().prepare("UPDATE facebook_destinations SET name = ?, mode = ?, page_id = ?, page_access_token = ?, rtmp_url = ?, stream_key = ?, live_title = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(name, mode, pageId, pageAccessToken, rtmpUrl, streamKey, title, id);
   } else {
-    getDb().prepare('INSERT INTO facebook_destinations (name, page_id, page_access_token, live_title, stream_key) VALUES (?, ?, ?, ?, ?)').run(name, pageId, pageAccessToken, title, '');
+    getDb().prepare('INSERT INTO facebook_destinations (name, mode, page_id, page_access_token, rtmp_url, stream_key, live_title) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(name, mode, pageId, pageAccessToken, rtmpUrl, streamKey, title);
   }
 }
 

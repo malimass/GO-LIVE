@@ -65,18 +65,31 @@
       <h2>Facebook</h2>
       <div id="fb-list">
         <% fbDests.forEach(function(fb) { %>
-          <div class="config-row" data-id="<%= fb.id %>">
+          <div class="config-row" data-id="<%= fb.id %>" data-mode="<%= fb.mode || 'api' %>">
             <div class="config-fields">
               <input type="text" value="<%= fb.name %>" placeholder="Nome (es. Pagina 1)" class="fb-name">
-              <input type="text" value="<%= fb.page_id %>" placeholder="Page ID" class="fb-page-id">
+              <select class="fb-mode" onchange="toggleFbMode(this)">
+                <option value="api" <%= (fb.mode || 'api') === 'api' ? 'selected' : '' %>>Graph API</option>
+                <option value="stream_key" <%= fb.mode === 'stream_key' ? 'selected' : '' %>>Stream Key</option>
+              </select>
               <input type="text" value="<%= fb.live_title || 'LIVE' %>" placeholder="Titolo Live" class="fb-title">
-              <span class="cookie-status <%= fb.hasToken ? 'cookie-ok' : 'cookie-missing' %>">
-                <%= fb.hasToken ? 'Token OK' : 'No token' %>
-              </span>
+              <div class="fb-api-fields" style="<%= fb.mode === 'stream_key' ? 'display:none' : '' %>">
+                <input type="text" value="<%= fb.page_id %>" placeholder="Page ID" class="fb-page-id">
+                <span class="cookie-status <%= fb.hasToken ? 'cookie-ok' : 'cookie-missing' %>">
+                  <%= fb.hasToken ? 'Token OK' : 'No token' %>
+                </span>
+              </div>
+              <div class="fb-sk-fields" style="<%= fb.mode === 'stream_key' ? '' : 'display:none' %>">
+                <input type="text" value="<%= fb.rtmp_url || 'rtmps://live-api-s.facebook.com:443/rtmp/' %>" placeholder="RTMP URL" class="fb-rtmp-url">
+                <input type="text" value="<%= fb.stream_key || '' %>" placeholder="Stream Key" class="fb-stream-key">
+                <span class="cookie-status <%= fb.hasStreamKey ? 'cookie-ok' : 'cookie-missing' %>">
+                  <%= fb.hasStreamKey ? 'Key OK' : 'No key' %>
+                </span>
+              </div>
             </div>
             <div class="config-actions">
               <button class="btn btn-sm btn-primary" onclick="saveFb(this)">Salva</button>
-              <button class="btn btn-sm" onclick="showTokenUpload(<%= fb.id %>)">Token</button>
+              <button class="btn btn-sm fb-token-btn" onclick="showTokenUpload(<%= fb.id %>)" style="<%= fb.mode === 'stream_key' ? 'display:none' : '' %>">Token</button>
               <button class="btn btn-sm btn-danger" onclick="deleteFb(<%= fb.id %>)">X</button>
             </div>
           </div>

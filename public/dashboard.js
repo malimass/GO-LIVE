@@ -110,18 +110,43 @@ function stopStream() {
     .catch((err) => alert('Errore: ' + err.message));
 }
 
+// === FACEBOOK MODE TOGGLE ===
+function toggleFbMode(select) {
+  const row = select.closest('.config-row');
+  const mode = select.value;
+  const apiFields = row.querySelector('.fb-api-fields');
+  const skFields = row.querySelector('.fb-sk-fields');
+  const tokenBtn = row.querySelector('.fb-token-btn');
+
+  if (apiFields) apiFields.style.display = mode === 'stream_key' ? 'none' : '';
+  if (skFields) skFields.style.display = mode === 'stream_key' ? '' : 'none';
+  if (tokenBtn) tokenBtn.style.display = mode === 'stream_key' ? 'none' : '';
+}
+
 // === FACEBOOK CRUD ===
 function addFbRow() {
   const list = document.getElementById('fb-list');
   const row = document.createElement('div');
   row.className = 'config-row';
   row.dataset.id = '';
+  row.dataset.mode = 'stream_key';
   row.innerHTML = `
     <div class="config-fields">
       <input type="text" placeholder="Nome (es. Pagina 1)" class="fb-name">
-      <input type="text" placeholder="Page ID" class="fb-page-id">
+      <select class="fb-mode" onchange="toggleFbMode(this)">
+        <option value="api">Graph API</option>
+        <option value="stream_key" selected>Stream Key</option>
+      </select>
       <input type="text" value="LIVE" placeholder="Titolo Live" class="fb-title">
-      <span class="cookie-status cookie-missing">No token</span>
+      <div class="fb-api-fields" style="display:none">
+        <input type="text" placeholder="Page ID" class="fb-page-id">
+        <span class="cookie-status cookie-missing">No token</span>
+      </div>
+      <div class="fb-sk-fields">
+        <input type="text" value="rtmps://live-api-s.facebook.com:443/rtmp/" placeholder="RTMP URL" class="fb-rtmp-url">
+        <input type="text" placeholder="Stream Key" class="fb-stream-key">
+        <span class="cookie-status cookie-missing">No key</span>
+      </div>
     </div>
     <div class="config-actions">
       <button class="btn btn-sm btn-primary" onclick="saveFb(this)">Salva</button>
@@ -135,24 +160,36 @@ function saveFb(btn) {
   const row = btn.closest('.config-row');
   const id = row.dataset.id ? parseInt(row.dataset.id) : null;
   const name = row.querySelector('.fb-name').value.trim();
-  const pageId = row.querySelector('.fb-page-id').value.trim();
+  const mode = row.querySelector('.fb-mode') ? row.querySelector('.fb-mode').value : 'api';
   const liveTitle = row.querySelector('.fb-title') ? row.querySelector('.fb-title').value.trim() : 'LIVE';
 
-  if (!name || !pageId) {
-    alert('Nome e Page ID sono obbligatori');
+  if (!name) {
+    alert('Nome è obbligatorio');
     return;
   }
 
-  // If new row, need token too — prompt to save first then add token
-  const body = { id, name, pageId, liveTitle };
+  const body = { id, name, mode, liveTitle };
 
-  // For existing rows, don't send token (keep existing)
-  // For new rows, send a placeholder and user adds token after
-  if (!id) {
-    body.pageAccessToken = prompt('Incolla il Page Access Token:');
-    if (!body.pageAccessToken) {
-      alert('Page Access Token obbligatorio');
+  if (mode === 'stream_key') {
+    body.rtmpUrl = row.querySelector('.fb-rtmp-url') ? row.querySelector('.fb-rtmp-url').value.trim() : '';
+    body.streamKey = row.querySelector('.fb-stream-key') ? row.querySelector('.fb-stream-key').value.trim() : '';
+    if (!body.streamKey) {
+      alert('Stream Key è obbligatoria');
       return;
+    }
+  } else {
+    body.pageId = row.querySelector('.fb-page-id') ? row.querySelector('.fb-page-id').value.trim() : '';
+    if (!body.pageId) {
+      alert('Page ID è obbligatorio');
+      return;
+    }
+    // For new rows, prompt for token
+    if (!id) {
+      body.pageAccessToken = prompt('Incolla il Page Access Token:');
+      if (!body.pageAccessToken) {
+        alert('Page Access Token obbligatorio');
+        return;
+      }
     }
   }
 
