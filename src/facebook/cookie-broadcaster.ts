@@ -28,11 +28,10 @@ function normalizeCookies(cookies: Record<string, unknown>[]): Cookie[] {
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-const BROWSER_HEADERS = {
+const BROWSER_HEADERS: Record<string, string> = {
   'User-Agent': USER_AGENT,
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
   'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
-  'Accept-Encoding': 'gzip, deflate, br',
   'Cache-Control': 'no-cache',
   'Sec-Fetch-Dest': 'document',
   'Sec-Fetch-Mode': 'navigate',
@@ -49,6 +48,7 @@ export class FacebookCookieBroadcaster {
   private description: string;
   private liveVideoId: string | null = null;
   private accessToken: string = '';
+  private fbDtsg: string = '';
   private cookieStr: string = '';
 
   constructor(
@@ -67,148 +67,154 @@ export class FacebookCookieBroadcaster {
   }
 
   /**
-   * Extract user access token from Facebook HTML page.
-   * Facebook embeds the token in the page when authenticated via cookies.
+   * Fetch a Facebook page with cookies and full browser headers
    */
-  private async extractAccessToken(): Promise<string> {
-    if (this.accessToken) return this.accessToken;
-
-    const response = await fetch('https://www.facebook.com/dialog/oauth?client_id=124024574287414&redirect_uri=https://www.facebook.com/connect/login_success.html&scope=pages_manage_posts,pages_read_engagement&response_type=token', {
-      headers: {
-        ...BROWSER_HEADERS,
-        'Cookie': this.cookieStr,
-      },
-      redirect: 'manual',
+  private async fetchWithCookies(url: string): Promise<{ status: number; html: string }> {
+    const response = await fetch(url, {
+      headers: { ...BROWSER_HEADERS, 'Cookie': this.cookieStr },
+      redirect: 'follow',
     });
-
-    // If we got a redirect, the token might be in the Location header
-    const location = response.headers.get('location') || '';
-    logger.info(`[FB:${this.pageName}] OAuth redirect status=${response.status}, location=${location.substring(0, 200)}`);
-
-    const tokenFromLocation = location.match(/access_token=([^&]+)/);
-    if (tokenFromLocation) {
-      this.accessToken = decodeURIComponent(tokenFromLocation[1]);
-      logger.info(`[FB:${this.pageName}] Access token extracted from OAuth redirect`);
-      return this.accessToken;
-    }
-
-    // If not in redirect, check the response body
     const html = await response.text();
-
-    // Follow the redirect manually if needed
-    if (location && !tokenFromLocation) {
-      const followResponse = await fetch(location, {
-        headers: {
-          ...BROWSER_HEADERS,
-          'Cookie': this.cookieStr,
-        },
-        redirect: 'manual',
-      });
-      const followLocation = followResponse.headers.get('location') || '';
-      const followHtml = await followResponse.text();
-
-      const tokenFromFollow = followLocation.match(/access_token=([^&]+)/) ||
-                              followHtml.match(/access_token=([^&"]+)/);
-      if (tokenFromFollow) {
-        this.accessToken = decodeURIComponent(tokenFromFollow[1]);
-        logger.info(`[FB:${this.pageName}] Access token extracted from follow redirect`);
-        return this.accessToken;
-      }
-    }
-
-    // Try to extract from the initial HTML body
-    const tokenPatterns: [RegExp, string][] = [
-      [/access_token=([^&"\\]+)/, 'URL param'],
-      [/"accessToken":"([^"]+)"/, 'accessToken JSON'],
-      [/"access_token":"([^"]+)"/, 'access_token JSON'],
-      [/EAAG\w{20,}/, 'EAAG token'],
-    ];
-
-    for (const [pattern, label] of tokenPatterns) {
-      const match = html.match(pattern);
-      if (match) {
-        this.accessToken = match[1] || match[0];
-        logger.info(`[FB:${this.pageName}] Access token extracted via "${label}" (length: ${this.accessToken.length})`);
-        return this.accessToken;
-      }
-    }
-
-    logger.warn(`[FB:${this.pageName}] Could not extract access token via OAuth. Trying page HTML fallback...`);
-
-    // Fallback: extract from the main Facebook page
-    return this.extractTokenFromPage();
+    return { status: response.status, html };
   }
 
   /**
-   * Fallback: extract access token from a Facebook page load
+   * Search HTML for access tokens using multiple patterns
    */
-  private async extractTokenFromPage(): Promise<string> {
-    const response = await fetch(`https://www.facebook.com/${this.pageId}/`, {
-      headers: {
-        ...BROWSER_HEADERS,
-        'Cookie': this.cookieStr,
-      },
-      redirect: 'follow',
-    });
-
-    const html = await response.text();
-    logger.info(`[FB:${this.pageName}] Page fetch: status=${response.status}, length=${html.length}`);
-
-    // Look for access token in the page HTML
+  private findTokenInHtml(html: string, source: string): string | null {
     const patterns: [RegExp, string][] = [
-      [/"accessToken":"(EAAG[^"]+)"/, 'page accessToken'],
-      [/"access_token":"(EAAG[^"]+)"/, 'page access_token'],
-      [/EAAG[\w]{30,}/, 'page EAAG literal'],
+      [/"accessToken":"(EAA[^"]+)"/, 'accessToken'],
+      [/"access_token":"(EAA[^"]+)"/, 'access_token'],
+      [/"token":"(EAA[^"]+)"/, 'token'],
+      [/access_token=(EAA[^&"\\]+)/, 'URL param'],
+      [/(EAAG[\w]{30,})/, 'EAAG literal'],
+      [/(EAAB[\w]{30,})/, 'EAAB literal'],
+      [/(EAAd[\w]{30,})/, 'EAAd literal'],
     ];
 
     for (const [pattern, label] of patterns) {
       const match = html.match(pattern);
       if (match) {
-        this.accessToken = match[1] || match[0];
-        logger.info(`[FB:${this.pageName}] Token from page via "${label}" (length: ${this.accessToken.length})`);
-        return this.accessToken;
+        const token = match[1] || match[0];
+        logger.info(`[FB:${this.pageName}] Token found in ${source} via "${label}" (length: ${token.length})`);
+        return token;
       }
     }
-
-    // Log what we found for debugging
-    const eaIdx = html.indexOf('EAA');
-    if (eaIdx >= 0) {
-      const snippet = html.substring(Math.max(0, eaIdx - 20), eaIdx + 80);
-      logger.warn(`[FB:${this.pageName}] Found "EAA" in page but no pattern matched. Snippet: ${snippet}`);
-    } else {
-      logger.warn(`[FB:${this.pageName}] No access token found in page HTML.`);
-    }
-
-    throw new Error(`Could not extract access token for ${this.pageName}`);
+    return null;
   }
 
   /**
-   * Create a live broadcast using Graph API with extracted access token
+   * Extract fb_dtsg and optionally access token from Facebook page
+   */
+  private async fetchDtsgAndToken(): Promise<void> {
+    // Fetch main page for fb_dtsg
+    const { status, html } = await this.fetchWithCookies('https://m.facebook.com/');
+    logger.info(`[FB:${this.pageName}] m.facebook.com: status=${status}, length=${html.length}`);
+
+    if (status !== 200) {
+      logger.warn(`[FB:${this.pageName}] m.facebook.com response (first 500): ${html.substring(0, 500)}`);
+    }
+
+    // Extract fb_dtsg
+    const dtsgPatterns: RegExp[] = [
+      /"DTSGInitialData".*?"token":"([^"]+)"/,
+      /\["DTSGInitialData",\[\],\{"token":"([^"]+)"/,
+      /"DTSGInitData".*?"token":"([^"]+)"/,
+      /{"name":"fb_dtsg","value":"([^"]+)"}/,
+      /name="fb_dtsg" value="([^"]+)"/,
+      /"dtsg":\{"token":"([^"]+)"/,
+    ];
+
+    for (const pattern of dtsgPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        this.fbDtsg = match[1];
+        logger.info(`[FB:${this.pageName}] fb_dtsg extracted`);
+        break;
+      }
+    }
+
+    if (!this.fbDtsg) {
+      throw new Error(`Could not extract fb_dtsg for ${this.pageName}`);
+    }
+
+    // Also look for tokens in this page
+    const token = this.findTokenInHtml(html, 'm.facebook.com');
+    if (token) {
+      this.accessToken = token;
+    }
+  }
+
+  /**
+   * Try to extract access token from various Facebook pages
+   */
+  private async extractAccessToken(): Promise<string> {
+    if (this.accessToken) return this.accessToken;
+
+    // Try multiple pages that might contain access tokens
+    const urls = [
+      `https://business.facebook.com/latest/home?asset_id=${this.pageId}`,
+      `https://business.facebook.com/content_management/?asset_id=${this.pageId}`,
+      `https://www.facebook.com/pages/?category=your_pages`,
+    ];
+
+    for (const url of urls) {
+      try {
+        const { status, html } = await this.fetchWithCookies(url);
+        logger.info(`[FB:${this.pageName}] ${new URL(url).hostname}${new URL(url).pathname}: status=${status}, length=${html.length}`);
+
+        const token = this.findTokenInHtml(html, url);
+        if (token) {
+          this.accessToken = token;
+          return token;
+        }
+
+        // Log what we see for debugging
+        const eaaIdx = html.indexOf('EAA');
+        if (eaaIdx >= 0) {
+          logger.info(`[FB:${this.pageName}] Found "EAA" at index ${eaaIdx}: ${html.substring(eaaIdx, eaaIdx + 60)}`);
+        }
+      } catch (err) {
+        logger.warn(`[FB:${this.pageName}] Error fetching ${url}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    throw new Error(`Could not extract access token for ${this.pageName} from any source`);
+  }
+
+  /**
+   * Create a live broadcast
    */
   async createBroadcast(): Promise<FbStreamKeyResult> {
     logger.info(`[FB:${this.pageName}] Creating live via cookie auth`);
 
-    const token = await this.extractAccessToken();
+    // Step 1: Get fb_dtsg and potentially an access token
+    await this.fetchDtsgAndToken();
 
-    // First get page access token (user token -> page token)
-    let pageToken = token;
+    // Step 2: If no token from initial page, try other sources
+    if (!this.accessToken) {
+      await this.extractAccessToken();
+    }
+
+    // Step 3: Try to get page-specific access token
+    let pageToken = this.accessToken;
     try {
-      const pageTokenResponse = await fetch(
-        `https://graph.facebook.com/v21.0/${this.pageId}?fields=access_token&access_token=${encodeURIComponent(token)}`,
+      const resp = await fetch(
+        `https://graph.facebook.com/v21.0/${this.pageId}?fields=access_token&access_token=${encodeURIComponent(this.accessToken)}`,
         { headers: { 'User-Agent': USER_AGENT } },
       );
-      if (pageTokenResponse.ok) {
-        const pageData = await pageTokenResponse.json() as Record<string, string>;
-        if (pageData.access_token) {
-          pageToken = pageData.access_token;
+      if (resp.ok) {
+        const data = await resp.json() as Record<string, string>;
+        if (data.access_token) {
+          pageToken = data.access_token;
           logger.info(`[FB:${this.pageName}] Got page access token`);
         }
       }
-    } catch (err) {
-      logger.warn(`[FB:${this.pageName}] Could not get page token, using user token: ${err instanceof Error ? err.message : String(err)}`);
+    } catch {
+      // Use the user token directly
     }
 
-    // Create live video
+    // Step 4: Create live video via Graph API
     const params = new URLSearchParams({
       title: this.title,
       description: this.description,
@@ -245,53 +251,36 @@ export class FacebookCookieBroadcaster {
     const streamUrl = (data.secure_stream_url || data.stream_url) as string;
     if (!streamUrl) {
       logger.error(`[FB:${this.pageName}] No stream URL in response: ${text.substring(0, 300)}`);
-      throw new Error(`No stream URL in Graph API response for ${this.pageName}`);
+      throw new Error(`No stream URL for ${this.pageName}`);
     }
 
     this.liveVideoId = data.id as string;
+    this.accessToken = pageToken;
 
-    // Parse RTMP URL
     const rtmpMatch = streamUrl.match(/^(rtmps?:\/\/[^/]+\/rtmp\/)(.+)$/);
-    let url: string;
-    let key: string;
-
-    if (rtmpMatch) {
-      url = rtmpMatch[1];
-      key = rtmpMatch[2];
-    } else {
-      url = streamUrl;
-      key = '';
-    }
+    const url = rtmpMatch ? rtmpMatch[1] : streamUrl;
+    const key = rtmpMatch ? rtmpMatch[2] : '';
 
     logger.info(`[FB:${this.pageName}] Live created (id: ${this.liveVideoId})`);
     return { url, key };
   }
 
   async endBroadcast(): Promise<void> {
-    if (!this.liveVideoId) return;
+    if (!this.liveVideoId || !this.accessToken) return;
 
     logger.info(`[FB:${this.pageName}] Ending live (id: ${this.liveVideoId})`);
 
     try {
-      const token = this.accessToken;
-      if (!token) {
-        logger.warn(`[FB:${this.pageName}] No access token to end broadcast`);
-        return;
-      }
-
       const params = new URLSearchParams({
         end_live_video: 'true',
-        access_token: token,
+        access_token: this.accessToken,
       });
 
       await fetch(
         `https://graph.facebook.com/v21.0/${this.liveVideoId}`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': USER_AGENT,
-          },
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
           body: params.toString(),
         },
       );
