@@ -6,11 +6,6 @@ export interface FbStreamKeyResult {
   key: string;
 }
 
-interface FbGraphQLResponse {
-  data?: Record<string, unknown>;
-  errors?: Array<{ message: string }>;
-}
-
 function normalizeCookies(cookies: Record<string, unknown>[]): Cookie[] {
   return cookies.map((c) => {
     const sameSite = String(c.sameSite || 'Lax');
@@ -33,6 +28,19 @@ function normalizeCookies(cookies: Record<string, unknown>[]): Cookie[] {
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
+const BROWSER_HEADERS = {
+  'User-Agent': USER_AGENT,
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+  'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+  'Upgrade-Insecure-Requests': '1',
+};
+
 export class FacebookCookieBroadcaster {
   private pageId: string;
   private pageName: string;
@@ -40,7 +48,7 @@ export class FacebookCookieBroadcaster {
   private title: string;
   private description: string;
   private liveVideoId: string | null = null;
-  private fbDtsg: string = '';
+  private accessToken: string = '';
   private cookieStr: string = '';
 
   constructor(
@@ -59,166 +67,190 @@ export class FacebookCookieBroadcaster {
   }
 
   /**
-   * Fetch fb_dtsg CSRF token from Facebook
+   * Extract user access token from Facebook HTML page.
+   * Facebook embeds the token in the page when authenticated via cookies.
    */
-  private async fetchDtsg(): Promise<string> {
-    if (this.fbDtsg) return this.fbDtsg;
+  private async extractAccessToken(): Promise<string> {
+    if (this.accessToken) return this.accessToken;
 
-    // Use mobile site - less anti-bot protection from datacenter IPs
-    const response = await fetch('https://m.facebook.com/', {
+    const response = await fetch('https://www.facebook.com/dialog/oauth?client_id=124024574287414&redirect_uri=https://www.facebook.com/connect/login_success.html&scope=pages_manage_posts,pages_read_engagement&response_type=token', {
       headers: {
+        ...BROWSER_HEADERS,
         'Cookie': this.cookieStr,
-        'User-Agent': USER_AGENT,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1',
+      },
+      redirect: 'manual',
+    });
+
+    // If we got a redirect, the token might be in the Location header
+    const location = response.headers.get('location') || '';
+    logger.info(`[FB:${this.pageName}] OAuth redirect status=${response.status}, location=${location.substring(0, 200)}`);
+
+    const tokenFromLocation = location.match(/access_token=([^&]+)/);
+    if (tokenFromLocation) {
+      this.accessToken = decodeURIComponent(tokenFromLocation[1]);
+      logger.info(`[FB:${this.pageName}] Access token extracted from OAuth redirect`);
+      return this.accessToken;
+    }
+
+    // If not in redirect, check the response body
+    const html = await response.text();
+
+    // Follow the redirect manually if needed
+    if (location && !tokenFromLocation) {
+      const followResponse = await fetch(location, {
+        headers: {
+          ...BROWSER_HEADERS,
+          'Cookie': this.cookieStr,
+        },
+        redirect: 'manual',
+      });
+      const followLocation = followResponse.headers.get('location') || '';
+      const followHtml = await followResponse.text();
+
+      const tokenFromFollow = followLocation.match(/access_token=([^&]+)/) ||
+                              followHtml.match(/access_token=([^&"]+)/);
+      if (tokenFromFollow) {
+        this.accessToken = decodeURIComponent(tokenFromFollow[1]);
+        logger.info(`[FB:${this.pageName}] Access token extracted from follow redirect`);
+        return this.accessToken;
+      }
+    }
+
+    // Try to extract from the initial HTML body
+    const tokenPatterns: [RegExp, string][] = [
+      [/access_token=([^&"\\]+)/, 'URL param'],
+      [/"accessToken":"([^"]+)"/, 'accessToken JSON'],
+      [/"access_token":"([^"]+)"/, 'access_token JSON'],
+      [/EAAG\w{20,}/, 'EAAG token'],
+    ];
+
+    for (const [pattern, label] of tokenPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        this.accessToken = match[1] || match[0];
+        logger.info(`[FB:${this.pageName}] Access token extracted via "${label}" (length: ${this.accessToken.length})`);
+        return this.accessToken;
+      }
+    }
+
+    logger.warn(`[FB:${this.pageName}] Could not extract access token via OAuth. Trying page HTML fallback...`);
+
+    // Fallback: extract from the main Facebook page
+    return this.extractTokenFromPage();
+  }
+
+  /**
+   * Fallback: extract access token from a Facebook page load
+   */
+  private async extractTokenFromPage(): Promise<string> {
+    const response = await fetch(`https://www.facebook.com/${this.pageId}/`, {
+      headers: {
+        ...BROWSER_HEADERS,
+        'Cookie': this.cookieStr,
       },
       redirect: 'follow',
     });
 
     const html = await response.text();
+    logger.info(`[FB:${this.pageName}] Page fetch: status=${response.status}, length=${html.length}`);
 
-    // Log response status and size for debugging
-    logger.info(`[FB:${this.pageName}] fb_dtsg fetch: status=${response.status}, html length=${html.length}`);
-
-    // Log first 500 chars of response body when not 200 for debugging
-    if (response.status !== 200) {
-      logger.warn(`[FB:${this.pageName}] Response body (first 500): ${html.substring(0, 500)}`);
-    }
-
-    // Try multiple known patterns for fb_dtsg extraction
+    // Look for access token in the page HTML
     const patterns: [RegExp, string][] = [
-      [/"DTSGInitialData".*?"token":"([^"]+)"/, 'DTSGInitialData'],
-      [/\["DTSGInitialData",\[\],\{"token":"([^"]+)"/, 'DTSGInitialData array'],
-      [/"DTSGInitData".*?"token":"([^"]+)"/, 'DTSGInitData'],
-      [/{"name":"fb_dtsg","value":"([^"]+)"}/, 'JSON name-value'],
-      [/name="fb_dtsg" value="([^"]+)"/, 'form input'],
-      [/"dtsg":\{"token":"([^"]+)"/, 'dtsg.token'],
-      [/fb_dtsg["'\s:=]+["']([^"']+)["']/, 'generic fb_dtsg'],
+      [/"accessToken":"(EAAG[^"]+)"/, 'page accessToken'],
+      [/"access_token":"(EAAG[^"]+)"/, 'page access_token'],
+      [/EAAG[\w]{30,}/, 'page EAAG literal'],
     ];
 
     for (const [pattern, label] of patterns) {
       const match = html.match(pattern);
       if (match) {
-        this.fbDtsg = match[1];
-        logger.info(`[FB:${this.pageName}] fb_dtsg extracted via "${label}" pattern`);
-        return this.fbDtsg;
+        this.accessToken = match[1] || match[0];
+        logger.info(`[FB:${this.pageName}] Token from page via "${label}" (length: ${this.accessToken.length})`);
+        return this.accessToken;
       }
     }
 
-    // Log a snippet around "dtsg" if present to help debug
-    const dtsgIdx = html.indexOf('dtsg');
-    if (dtsgIdx >= 0) {
-      const snippet = html.substring(Math.max(0, dtsgIdx - 30), dtsgIdx + 120);
-      logger.warn(`[FB:${this.pageName}] Found "dtsg" in HTML but no pattern matched. Snippet: ${snippet}`);
+    // Log what we found for debugging
+    const eaIdx = html.indexOf('EAA');
+    if (eaIdx >= 0) {
+      const snippet = html.substring(Math.max(0, eaIdx - 20), eaIdx + 80);
+      logger.warn(`[FB:${this.pageName}] Found "EAA" in page but no pattern matched. Snippet: ${snippet}`);
     } else {
-      logger.warn(`[FB:${this.pageName}] No "dtsg" found in HTML at all. Cookies may be expired or invalid.`);
+      logger.warn(`[FB:${this.pageName}] No access token found in page HTML.`);
     }
 
-    throw new Error(`Could not extract fb_dtsg for ${this.pageName}`);
+    throw new Error(`Could not extract access token for ${this.pageName}`);
   }
 
   /**
-   * Create a live broadcast and get the stream key via Graph API with cookie auth
+   * Create a live broadcast using Graph API with extracted access token
    */
   async createBroadcast(): Promise<FbStreamKeyResult> {
     logger.info(`[FB:${this.pageName}] Creating live via cookie auth`);
 
-    const dtsg = await this.fetchDtsg();
+    const token = await this.extractAccessToken();
 
-    // Cookie auth doesn't work with graph.facebook.com (needs access token).
-    // Go directly to Facebook's internal GraphQL API which works with cookies.
-    return this.createBroadcastInternal(dtsg);
-  }
+    // First get page access token (user token -> page token)
+    let pageToken = token;
+    try {
+      const pageTokenResponse = await fetch(
+        `https://graph.facebook.com/v21.0/${this.pageId}?fields=access_token&access_token=${encodeURIComponent(token)}`,
+        { headers: { 'User-Agent': USER_AGENT } },
+      );
+      if (pageTokenResponse.ok) {
+        const pageData = await pageTokenResponse.json() as Record<string, string>;
+        if (pageData.access_token) {
+          pageToken = pageData.access_token;
+          logger.info(`[FB:${this.pageName}] Got page access token`);
+        }
+      }
+    } catch (err) {
+      logger.warn(`[FB:${this.pageName}] Could not get page token, using user token: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
-  /**
-   * Fallback: use Facebook's internal GraphQL API to create the broadcast
-   */
-  private async createBroadcastInternal(dtsg: string): Promise<FbStreamKeyResult> {
-    logger.info(`[FB:${this.pageName}] Trying internal GraphQL API`);
-
-    const variables = JSON.stringify({
-      input: {
-        composer_entry_point: 'inline_composer',
-        composer_source_surface: 'timeline',
-        idempotence_token: `live_${Date.now()}_${Math.random().toString(36).substring(2)}`,
-        source: 'owner',
-        actor_id: this.pageId,
-        client_mutation_id: '1',
-      },
-    });
-
-    // Extract jazoest from cookies (required by some FB endpoints)
-    const cUser = this.cookies.find(c => c.name === 'c_user');
-    const jazoest = cUser ? `2${Array.from(cUser.value).reduce((sum, ch) => sum + ch.charCodeAt(0), 0)}` : '';
-
+    // Create live video
     const params = new URLSearchParams({
-      fb_dtsg: dtsg,
-      fb_api_caller_class: 'RelayModern',
-      fb_api_req_friendly_name: 'LiveVideoCreateMutation',
-      variables,
-      doc_id: '6830942790271498',
+      title: this.title,
+      description: this.description,
+      status: 'LIVE_NOW',
+      access_token: pageToken,
     });
-    if (jazoest) params.append('jazoest', jazoest);
 
-    const response = await fetch('https://www.facebook.com/api/graphql/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Cookie': this.cookieStr,
-        'User-Agent': USER_AGENT,
-        'X-FB-Friendly-Name': 'LiveVideoCreateMutation',
-        'X-FB-LSD': dtsg,
-        'Origin': 'https://www.facebook.com',
-        'Referer': 'https://www.facebook.com/',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'Accept': '*/*',
-        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${this.pageId}/live_videos`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': USER_AGENT,
+        },
+        body: params.toString(),
       },
-      body: params.toString(),
-    });
+    );
 
     const text = await response.text();
 
     if (!response.ok) {
-      logger.error(`[FB:${this.pageName}] GraphQL error ${response.status}: ${text.substring(0, 500)}`);
-      throw new Error(`Facebook GraphQL error ${response.status} for ${this.pageName}`);
+      logger.error(`[FB:${this.pageName}] Graph API error ${response.status}: ${text.substring(0, 500)}`);
+      throw new Error(`Facebook API error ${response.status} for ${this.pageName}`);
     }
 
-    logger.info(`[FB:${this.pageName}] GraphQL response (first 300): ${text.substring(0, 300)}`);
-
-    let data: FbGraphQLResponse;
+    let data: Record<string, unknown>;
     try {
-      data = JSON.parse(text) as FbGraphQLResponse;
+      data = JSON.parse(text) as Record<string, unknown>;
     } catch {
-      throw new Error(`Invalid JSON from GraphQL for ${this.pageName}: ${text.substring(0, 300)}`);
+      throw new Error(`Invalid JSON from Graph API for ${this.pageName}: ${text.substring(0, 300)}`);
     }
 
-    if (data.errors?.length) {
-      throw new Error(`GraphQL error: ${data.errors[0].message}`);
-    }
-
-    // Extract stream URL from GraphQL response
-    const liveVideo = (data.data as Record<string, Record<string, Record<string, string>>>)?.live_video_create?.live_video;
-    if (!liveVideo) {
-      throw new Error(`Unexpected GraphQL response for ${this.pageName}`);
-    }
-
-    const streamUrl = (liveVideo.secure_stream_url || liveVideo.stream_url || liveVideo.dash_ingest_url) as string;
-    this.liveVideoId = liveVideo.id as string;
-
+    const streamUrl = (data.secure_stream_url || data.stream_url) as string;
     if (!streamUrl) {
-      throw new Error(`No stream URL in GraphQL response for ${this.pageName}`);
+      logger.error(`[FB:${this.pageName}] No stream URL in response: ${text.substring(0, 300)}`);
+      throw new Error(`No stream URL in Graph API response for ${this.pageName}`);
     }
 
+    this.liveVideoId = data.id as string;
+
+    // Parse RTMP URL
     const rtmpMatch = streamUrl.match(/^(rtmps?:\/\/[^/]+\/rtmp\/)(.+)$/);
     let url: string;
     let key: string;
@@ -231,7 +263,7 @@ export class FacebookCookieBroadcaster {
       key = '';
     }
 
-    logger.info(`[FB:${this.pageName}] Live created via GraphQL (id: ${this.liveVideoId})`);
+    logger.info(`[FB:${this.pageName}] Live created (id: ${this.liveVideoId})`);
     return { url, key };
   }
 
@@ -241,23 +273,24 @@ export class FacebookCookieBroadcaster {
     logger.info(`[FB:${this.pageName}] Ending live (id: ${this.liveVideoId})`);
 
     try {
-      const dtsg = await this.fetchDtsg();
+      const token = this.accessToken;
+      if (!token) {
+        logger.warn(`[FB:${this.pageName}] No access token to end broadcast`);
+        return;
+      }
 
       const params = new URLSearchParams({
         end_live_video: 'true',
-        fb_dtsg: dtsg,
+        access_token: token,
       });
 
       await fetch(
-        `https://graph.facebook.com/v25.0/${this.liveVideoId}`,
+        `https://graph.facebook.com/v21.0/${this.liveVideoId}`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Cookie': this.cookieStr,
             'User-Agent': USER_AGENT,
-            'Origin': 'https://www.facebook.com',
-            'Referer': 'https://www.facebook.com/',
           },
           body: params.toString(),
         },
