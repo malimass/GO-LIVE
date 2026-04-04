@@ -40,17 +40,6 @@ services:
     networks:
       - go-live-net
 
-  duckdns:
-    image: lscr.io/linuxserver/duckdns:latest
-    container_name: go-live-duckdns
-    restart: always
-    environment:
-      - SUBDOMAINS=${DUCKDNS_SUBDOMAIN}
-      - TOKEN=${DUCKDNS_TOKEN}
-      - TZ=Europe/Rome
-    networks:
-      - go-live-net
-
 volumes:
   logs:
   data:

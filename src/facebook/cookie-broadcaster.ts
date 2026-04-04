@@ -64,17 +64,33 @@ export class FacebookCookieBroadcaster {
   private async fetchDtsg(): Promise<string> {
     if (this.fbDtsg) return this.fbDtsg;
 
-    const response = await fetch('https://www.facebook.com/', {
+    // Use mobile site - less anti-bot protection from datacenter IPs
+    const response = await fetch('https://m.facebook.com/', {
       headers: {
         'Cookie': this.cookieStr,
         'User-Agent': USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
       },
+      redirect: 'follow',
     });
 
     const html = await response.text();
 
     // Log response status and size for debugging
     logger.info(`[FB:${this.pageName}] fb_dtsg fetch: status=${response.status}, html length=${html.length}`);
+
+    // Log first 500 chars of response body when not 200 for debugging
+    if (response.status !== 200) {
+      logger.warn(`[FB:${this.pageName}] Response body (first 500): ${html.substring(0, 500)}`);
+    }
 
     // Try multiple known patterns for fb_dtsg extraction
     const patterns: [RegExp, string][] = [
