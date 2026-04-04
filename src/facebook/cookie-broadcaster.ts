@@ -73,18 +73,36 @@ export class FacebookCookieBroadcaster {
 
     const html = await response.text();
 
-    // Extract fb_dtsg from HTML
-    const dtsgMatch = html.match(/"DTSGInitialData".*?"token":"([^"]+)"/);
-    if (dtsgMatch) {
-      this.fbDtsg = dtsgMatch[1];
-      return this.fbDtsg;
+    // Log response status and size for debugging
+    logger.info(`[FB:${this.pageName}] fb_dtsg fetch: status=${response.status}, html length=${html.length}`);
+
+    // Try multiple known patterns for fb_dtsg extraction
+    const patterns: [RegExp, string][] = [
+      [/"DTSGInitialData".*?"token":"([^"]+)"/, 'DTSGInitialData'],
+      [/\["DTSGInitialData",\[\],\{"token":"([^"]+)"/, 'DTSGInitialData array'],
+      [/"DTSGInitData".*?"token":"([^"]+)"/, 'DTSGInitData'],
+      [/{"name":"fb_dtsg","value":"([^"]+)"}/, 'JSON name-value'],
+      [/name="fb_dtsg" value="([^"]+)"/, 'form input'],
+      [/"dtsg":\{"token":"([^"]+)"/, 'dtsg.token'],
+      [/fb_dtsg["'\s:=]+["']([^"']+)["']/, 'generic fb_dtsg'],
+    ];
+
+    for (const [pattern, label] of patterns) {
+      const match = html.match(pattern);
+      if (match) {
+        this.fbDtsg = match[1];
+        logger.info(`[FB:${this.pageName}] fb_dtsg extracted via "${label}" pattern`);
+        return this.fbDtsg;
+      }
     }
 
-    // Alternative pattern
-    const altMatch = html.match(/name="fb_dtsg" value="([^"]+)"/);
-    if (altMatch) {
-      this.fbDtsg = altMatch[1];
-      return this.fbDtsg;
+    // Log a snippet around "dtsg" if present to help debug
+    const dtsgIdx = html.indexOf('dtsg');
+    if (dtsgIdx >= 0) {
+      const snippet = html.substring(Math.max(0, dtsgIdx - 30), dtsgIdx + 120);
+      logger.warn(`[FB:${this.pageName}] Found "dtsg" in HTML but no pattern matched. Snippet: ${snippet}`);
+    } else {
+      logger.warn(`[FB:${this.pageName}] No "dtsg" found in HTML at all. Cookies may be expired or invalid.`);
     }
 
     throw new Error(`Could not extract fb_dtsg for ${this.pageName}`);
