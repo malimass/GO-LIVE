@@ -10,6 +10,7 @@ import { createApiConfigRouter } from './routes/api-config.js';
 import { createApiStreamRouter } from './routes/api-stream.js';
 import { createApiLogsRouter } from './routes/api-logs.js';
 import { createApiOverlayRouter } from './routes/api-overlay.js';
+import { createFacebookOAuthRouter } from './routes/api-facebook-oauth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +18,8 @@ const __dirname = path.dirname(__filename);
 declare module 'express-session' {
   interface SessionData {
     authenticated: boolean;
+    fbOAuthState?: string;
+    fbOAuthPages?: Array<{ id: string; name: string; access_token: string }>;
   }
 }
 
@@ -34,6 +37,9 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
 
 export function createWebApp(config: Config, distribution: DistributionManager): express.Application {
   const app = express();
+
+  // Trust proxy (nginx HTTPS)
+  app.set('trust proxy', 1);
 
   // View engine
   app.set('view engine', 'ejs');
@@ -83,6 +89,7 @@ export function createWebApp(config: Config, distribution: DistributionManager):
   app.use('/api/stream', createApiStreamRouter(distribution, config));
   app.use('/api/logs', createApiLogsRouter());
   app.use('/api/overlay', createApiOverlayRouter());
+  app.use('/api/facebook-oauth', createFacebookOAuthRouter(config));
 
   return app;
 }

@@ -476,9 +476,98 @@ function uploadFbCookies() {
     .catch((err) => alert('Errore: ' + err.message));
 }
 
+// === FACEBOOK OAUTH ===
+function connectFacebook() {
+  fetch('/api/facebook-oauth/start')
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+      window.location.href = data.url;
+    })
+    .catch((err) => alert('Errore: ' + err.message));
+}
+
+function checkFbOAuth() {
+  const params = new URLSearchParams(window.location.search);
+  const fbOAuth = params.get('fb_oauth');
+
+  if (fbOAuth === 'success') {
+    // Clean URL
+    window.history.replaceState({}, '', '/');
+    // Fetch pages found during OAuth
+    fetch('/api/facebook-oauth/pages')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.pages && data.pages.length > 0) {
+          showFbPagesModal(data.pages);
+        } else {
+          alert('Nessuna pagina Facebook trovata. Assicurati di essere admin di almeno una pagina.');
+        }
+      })
+      .catch((err) => alert('Errore: ' + err.message));
+  } else if (fbOAuth === 'denied') {
+    window.history.replaceState({}, '', '/');
+    alert('Autorizzazione Facebook annullata.');
+  } else if (fbOAuth === 'error') {
+    window.history.replaceState({}, '', '/');
+    alert('Errore durante la connessione Facebook. Riprova.');
+  }
+}
+
+function showFbPagesModal(pages) {
+  const list = document.getElementById('fb-pages-list');
+  list.innerHTML = pages.map((p) => `
+    <label class="fb-page-row">
+      <input type="checkbox" checked value="${p.id}" data-name="${escapeHtml(p.name)}" data-token="${p.access_token}">
+      <span class="fb-page-name">${escapeHtml(p.name)}</span>
+      <span class="fb-page-id-label">ID: ${p.id}</span>
+    </label>
+  `).join('');
+  document.getElementById('fb-pages-modal').classList.remove('hidden');
+}
+
+function closeFbPagesModal() {
+  document.getElementById('fb-pages-modal').classList.add('hidden');
+}
+
+function saveSelectedFbPages() {
+  const checkboxes = document.querySelectorAll('#fb-pages-list input[type="checkbox"]:checked');
+  const pages = Array.from(checkboxes).map((cb) => ({
+    id: cb.value,
+    name: cb.dataset.name,
+    access_token: cb.dataset.token,
+  }));
+
+  if (pages.length === 0) {
+    alert('Seleziona almeno una pagina');
+    return;
+  }
+
+  fetch('/api/facebook-oauth/save-pages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pages }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.success) {
+        closeFbPagesModal();
+        alert(`Fatto! ${data.added} pagine aggiunte, ${data.updated} aggiornate.`);
+        location.reload();
+      } else {
+        alert(data.error || 'Errore');
+      }
+    })
+    .catch((err) => alert('Errore: ' + err.message));
+}
+
 // === POLLING ===
 setInterval(updateStatus, STATUS_INTERVAL);
 setInterval(updateLogs, LOGS_INTERVAL);
 updateStatus();
 updateLogs();
 loadOverlayStatus();
+checkFbOAuth();

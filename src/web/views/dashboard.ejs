@@ -104,7 +104,10 @@
           </div>
         <% }); %>
       </div>
-      <button class="btn btn-sm" onclick="addFbRow()" style="margin-top:0.75rem;">+ Aggiungi Pagina Facebook</button>
+      <div style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="addFbRow()">+ Aggiungi Manuale</button>
+        <button class="btn btn-sm btn-fb-connect" onclick="connectFacebook()">Collega Facebook</button>
+      </div>
     </section>
 
     <!-- Instagram Config -->
@@ -193,6 +196,19 @@
         <div class="modal-actions">
           <button class="btn" onclick="closeFbCookieModal()">Annulla</button>
           <button class="btn btn-primary" onclick="uploadFbCookies()">Salva Cookie</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Facebook OAuth Page Selection Modal -->
+    <div id="fb-pages-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Pagine Facebook trovate</h3>
+        <p>Seleziona le pagine da aggiungere come destinazioni live:</p>
+        <div id="fb-pages-list" style="max-height:50vh; overflow-y:auto; margin:1rem 0;"></div>
+        <div class="modal-actions">
+          <button class="btn" onclick="closeFbPagesModal()">Annulla</button>
+          <button class="btn btn-primary" onclick="saveSelectedFbPages()">Aggiungi Selezionate</button>
         </div>
       </div>
     </div>

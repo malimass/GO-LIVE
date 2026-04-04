@@ -202,6 +202,8 @@ main {
 .btn-primary:hover { background: var(--primary-hover); }
 .btn-danger { background: var(--danger); border-color: var(--danger); }
 .btn-danger:hover { opacity: 0.9; }
+.btn-fb-connect { background: var(--fb-blue); border-color: var(--fb-blue); color: #fff; font-weight: 600; }
+.btn-fb-connect:hover { opacity: 0.9; }
 
 /* Controls */
 .controls {
@@ -249,6 +251,21 @@ main {
   justify-content: flex-end;
   margin-top: 1rem;
 }
+
+/* Facebook page selection */
+.fb-page-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  min-height: 48px;
+}
+.fb-page-row:active { background: rgba(255,255,255,0.05); }
+.fb-page-row input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; }
+.fb-page-name { font-weight: 500; flex: 1; }
+.fb-page-id-label { font-size: 0.75rem; color: var(--text-muted); }
 
 /* Logs */
 .log-viewer {

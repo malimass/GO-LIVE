@@ -27,6 +27,9 @@ export interface Config {
   dashboardPassword: string;
   port: number;
   nodeEnv: string;
+  fbAppId: string;
+  fbAppSecret: string;
+  fbOAuthRedirectUri: string;
   facebook: FacebookDestination[];
   instagram: InstagramAccount[];
 }
@@ -61,6 +64,9 @@ export function loadConfig(): Config {
     dashboardPassword: requireEnv('DASHBOARD_PASSWORD'),
     port: parseInt(optionalEnv('PORT', '3000'), 10),
     nodeEnv: optionalEnv('NODE_ENV', 'development'),
+    fbAppId: optionalEnv('FB_APP_ID', ''),
+    fbAppSecret: optionalEnv('FB_APP_SECRET', ''),
+    fbOAuthRedirectUri: optionalEnv('FB_OAUTH_REDIRECT_URI', ''),
     facebook: loadFacebookFromDb(),
     instagram: loadInstagramFromDb(),
   };
