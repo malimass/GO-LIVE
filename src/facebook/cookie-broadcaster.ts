@@ -132,60 +132,9 @@ export class FacebookCookieBroadcaster {
 
     const dtsg = await this.fetchDtsg();
 
-    // Use Facebook's Graph API with cookie authentication (acting as page admin)
-    const params = new URLSearchParams({
-      title: this.title,
-      description: this.description,
-      status: 'LIVE_NOW',
-      fb_dtsg: dtsg,
-    });
-
-    const response = await fetch(
-      `https://graph.facebook.com/v25.0/${this.pageId}/live_videos`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Cookie': this.cookieStr,
-          'User-Agent': USER_AGENT,
-          'Origin': 'https://www.facebook.com',
-          'Referer': 'https://www.facebook.com/',
-        },
-        body: params.toString(),
-      },
-    );
-
-    if (!response.ok) {
-      const text = await response.text();
-      logger.error(`[FB:${this.pageName}] API error ${response.status}: ${text.substring(0, 500)}`);
-      throw new Error(`Facebook API error ${response.status} for ${this.pageName}`);
-    }
-
-    const data = await response.json() as Record<string, unknown>;
-
-    const streamUrl = (data.secure_stream_url || data.stream_url) as string;
-    if (!streamUrl) {
-      // If Graph API with cookies doesn't return stream URL, try internal API
-      return this.createBroadcastInternal(dtsg);
-    }
-
-    this.liveVideoId = data.id as string;
-
-    // Parse RTMP URL
-    const rtmpMatch = streamUrl.match(/^(rtmps?:\/\/[^/]+\/rtmp\/)(.+)$/);
-    let url: string;
-    let key: string;
-
-    if (rtmpMatch) {
-      url = rtmpMatch[1];
-      key = rtmpMatch[2];
-    } else {
-      url = streamUrl;
-      key = '';
-    }
-
-    logger.info(`[FB:${this.pageName}] Live created via cookie auth (id: ${this.liveVideoId})`);
-    return { url, key };
+    // Cookie auth doesn't work with graph.facebook.com (needs access token).
+    // Go directly to Facebook's internal GraphQL API which works with cookies.
+    return this.createBroadcastInternal(dtsg);
   }
 
   /**
