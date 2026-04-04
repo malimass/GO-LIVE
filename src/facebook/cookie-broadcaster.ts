@@ -154,11 +154,18 @@ export class FacebookCookieBroadcaster {
       },
     });
 
+    // Extract jazoest from cookies (required by some FB endpoints)
+    const cUser = this.cookies.find(c => c.name === 'c_user');
+    const jazoest = cUser ? `2${Array.from(cUser.value).reduce((sum, ch) => sum + ch.charCodeAt(0), 0)}` : '';
+
     const params = new URLSearchParams({
       fb_dtsg: dtsg,
+      fb_api_caller_class: 'RelayModern',
+      fb_api_req_friendly_name: 'LiveVideoCreateMutation',
       variables,
-      doc_id: '6830942790271498', // LiveVideoCreateMutation
+      doc_id: '6830942790271498',
     });
+    if (jazoest) params.append('jazoest', jazoest);
 
     const response = await fetch('https://www.facebook.com/api/graphql/', {
       method: 'POST',
@@ -167,18 +174,33 @@ export class FacebookCookieBroadcaster {
         'Cookie': this.cookieStr,
         'User-Agent': USER_AGENT,
         'X-FB-Friendly-Name': 'LiveVideoCreateMutation',
+        'X-FB-LSD': dtsg,
         'Origin': 'https://www.facebook.com',
         'Referer': 'https://www.facebook.com/',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'Accept': '*/*',
+        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
       },
       body: params.toString(),
     });
 
+    const text = await response.text();
+
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Facebook GraphQL error ${response.status}: ${text.substring(0, 500)}`);
+      logger.error(`[FB:${this.pageName}] GraphQL error ${response.status}: ${text.substring(0, 500)}`);
+      throw new Error(`Facebook GraphQL error ${response.status} for ${this.pageName}`);
     }
 
-    const data = await response.json() as FbGraphQLResponse;
+    logger.info(`[FB:${this.pageName}] GraphQL response (first 300): ${text.substring(0, 300)}`);
+
+    let data: FbGraphQLResponse;
+    try {
+      data = JSON.parse(text) as FbGraphQLResponse;
+    } catch {
+      throw new Error(`Invalid JSON from GraphQL for ${this.pageName}: ${text.substring(0, 300)}`);
+    }
 
     if (data.errors?.length) {
       throw new Error(`GraphQL error: ${data.errors[0].message}`);
