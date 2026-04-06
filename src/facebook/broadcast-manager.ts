@@ -87,7 +87,7 @@ export class FacebookBroadcastManager {
     // Fetch live videos in PREVIEW or SCHEDULED_UNPUBLISHED status
     const params = new URLSearchParams({
       source: 'owner',
-      broadcast_status: JSON.stringify(['PREVIEW', 'SCHEDULED_UNPUBLISHED']),
+      broadcast_status: JSON.stringify(['UNPUBLISHED', 'SCHEDULED_UNPUBLISHED']),
       fields: 'id,title,status',
       access_token: this.accessToken,
     });
