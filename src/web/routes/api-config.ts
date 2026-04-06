@@ -25,7 +25,8 @@ export function createApiConfigRouter(config: Config): Router {
   router.post('/facebook', (req, res) => {
     try {
       const { id, name, mode, pageId, pageAccessToken, rtmpUrl, streamKey, liveTitle } = req.body;
-      const fbMode = mode === 'stream_key' ? 'stream_key' : mode === 'cookie' ? 'cookie' : 'api';
+      const validModes = ['stream_key', 'stream_key_auto', 'cookie', 'api'];
+      const fbMode = validModes.includes(mode) ? mode : 'api';
 
       if (!name) {
         res.status(400).json({ error: 'name è obbligatorio' });
@@ -40,6 +41,31 @@ export function createApiConfigRouter(config: Config): Router {
         }
         upsertFacebook({
           id: id || null, name, mode: 'stream_key',
+          rtmpUrl: rtmpUrl || 'rtmps://live-api-s.facebook.com:443/rtmp/',
+          streamKey, liveTitle,
+        });
+      } else if (fbMode === 'stream_key_auto') {
+        // Hybrid mode: stream key for video + OAuth token for auto-start
+        if (!streamKey) {
+          res.status(400).json({ error: 'Stream Key è obbligatoria' });
+          return;
+        }
+        if (!pageId) {
+          res.status(400).json({ error: 'Page ID è obbligatorio' });
+          return;
+        }
+        let token = pageAccessToken;
+        if (id && !token) {
+          const existing = getFacebookDestinations().find((fb) => fb.id === id);
+          token = existing?.page_access_token || '';
+        }
+        if (!token) {
+          res.status(400).json({ error: 'Token OAuth è obbligatorio. Usa "Collega Facebook" prima.' });
+          return;
+        }
+        upsertFacebook({
+          id: id || null, name, mode: 'stream_key_auto',
+          pageId, pageAccessToken: token,
           rtmpUrl: rtmpUrl || 'rtmps://live-api-s.facebook.com:443/rtmp/',
           streamKey, liveTitle,
         });

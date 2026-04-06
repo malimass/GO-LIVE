@@ -24,6 +24,7 @@ export class DistributionManager extends EventEmitter {
   private processes: FfmpegProcess[] = [];
   private igExtractors: InstagramKeyExtractor[] = [];
   private fbManagers: FacebookBroadcastManager[] = [];
+  private fbAutoStartManagers: FacebookBroadcastManager[] = [];
   private overlayPreprocessor: OverlayPreprocessor | null = null;
   private cookieManager: CookieManager;
   private config: Config;
@@ -87,14 +88,21 @@ export class DistributionManager extends EventEmitter {
     const fbDestinations: DestinationConfig[] = [];
     for (const fb of this.config.facebook) {
       try {
-        if (fb.mode === 'stream_key') {
-          // Static stream key — no Graph API needed
-          logger.info(`[FB:${fb.name}] Using permanent stream key`);
+        if (fb.mode === 'stream_key' || fb.mode === 'stream_key_auto') {
+          // Static stream key — send video via permanent key
+          logger.info(`[FB:${fb.name}] Using permanent stream key${fb.mode === 'stream_key_auto' ? ' (auto-start enabled)' : ''}`);
           fbDestinations.push({
             name: fb.name,
             rtmpUrl: fb.rtmpUrl,
             streamKey: fb.streamKey,
           });
+
+          if (fb.mode === 'stream_key_auto') {
+            // Store a manager to auto-start and auto-end via API
+            const manager = new FacebookBroadcastManager(fb.pageId, fb.name, fb.pageAccessToken, fb.liveTitle);
+            this.fbManagers.push(manager);
+            this.fbAutoStartManagers.push(manager);
+          }
         } else if (fb.mode === 'cookie') {
           // Cookie-based mode — bypass app restrictions
           logger.info(`[FB:${fb.name}] Creating live via cookie auth`);
@@ -183,9 +191,21 @@ export class DistributionManager extends EventEmitter {
       proc.start();
     }
 
-    // Wait for ffmpeg to connect and send first frames, then tell Instagram to "Go Live"
-    if (this.igExtractors.length > 0) {
+    // Wait for ffmpeg to connect and send first frames, then auto-start broadcasts
+    const needsDelayedStart = this.igExtractors.length > 0 || this.fbAutoStartManagers.length > 0;
+    if (needsDelayedStart) {
       setTimeout(async () => {
+        // Auto-start Facebook stream_key_auto broadcasts
+        for (const manager of this.fbAutoStartManagers) {
+          try {
+            await manager.goLiveOnStreamKey();
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            logger.error(`Failed to auto-start FB broadcast: ${msg}`);
+          }
+        }
+
+        // Start Instagram broadcasts
         for (const extractor of this.igExtractors) {
           try {
             await extractor.startBroadcast();
@@ -234,6 +254,7 @@ export class DistributionManager extends EventEmitter {
       }
     }
     this.fbManagers = [];
+    this.fbAutoStartManagers = [];
 
     // Close all Instagram sessions
     for (const extractor of this.igExtractors) {

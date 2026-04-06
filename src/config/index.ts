@@ -2,7 +2,7 @@ import { getFacebookDestinations, getInstagramAccounts, getDb } from '../db/inde
 
 export interface FacebookDestination {
   name: string;
-  mode: 'api' | 'stream_key' | 'cookie';
+  mode: 'api' | 'stream_key' | 'cookie' | 'stream_key_auto';
   pageId: string;
   pageAccessToken: string;
   rtmpUrl: string;
@@ -77,12 +77,13 @@ export function loadFacebookFromDb(): FacebookDestination[] {
     .filter((row) => {
       if (!row.enabled) return false;
       if (row.mode === 'stream_key') return !!row.stream_key;
+      if (row.mode === 'stream_key_auto') return !!row.stream_key && !!row.page_id && !!row.page_access_token;
       if (row.mode === 'cookie') return !!row.page_id && !!row.cookies_enc;
       return !!row.page_id && !!row.page_access_token;
     })
     .map((row) => ({
       name: row.name,
-      mode: (row.mode || 'api') as 'api' | 'stream_key' | 'cookie',
+      mode: (row.mode || 'api') as 'api' | 'stream_key' | 'cookie' | 'stream_key_auto',
       pageId: row.page_id,
       pageAccessToken: row.page_access_token,
       rtmpUrl: row.rtmp_url || 'rtmps://live-api-s.facebook.com:443/rtmp/',

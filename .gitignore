@@ -8,3 +8,4 @@ logs/
 Thumbs.db
 ssh-key-*.key
 ssh-key-*.key.pub
+TOKEN*.txt

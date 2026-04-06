@@ -69,8 +69,9 @@
             <div class="config-fields">
               <input type="text" value="<%= fb.name %>" placeholder="Nome (es. Pagina 1)" class="fb-name">
               <select class="fb-mode" onchange="toggleFbMode(this)">
+                <option value="stream_key_auto" <%= fb.mode === 'stream_key_auto' ? 'selected' : '' %>>Stream Key + Auto</option>
+                <option value="stream_key" <%= fb.mode === 'stream_key' ? 'selected' : '' %>>Stream Key (manuale)</option>
                 <option value="cookie" <%= fb.mode === 'cookie' ? 'selected' : '' %>>Cookie (auto)</option>
-                <option value="stream_key" <%= fb.mode === 'stream_key' ? 'selected' : '' %>>Stream Key</option>
                 <option value="api" <%= (fb.mode || 'api') === 'api' ? 'selected' : '' %>>Graph API</option>
               </select>
               <input type="text" value="<%= fb.live_title || 'LIVE' %>" placeholder="Titolo Live" class="fb-title">
@@ -81,13 +82,21 @@
                   <%= fb.cookies_enc ? 'Cookie OK' : 'No cookie' %>
                 </span>
               </div>
+              <div class="fb-ska-fields" style="<%= fb.mode === 'stream_key_auto' ? '' : 'display:none' %>">
+                <input type="text" value="<%= fb.page_id %>" placeholder="Page ID" class="fb-page-id-ska">
+                <input type="text" value="<%= fb.rtmp_url || 'rtmps://live-api-s.facebook.com:443/rtmp/' %>" placeholder="RTMP URL" class="fb-rtmp-url-ska">
+                <input type="text" value="<%= fb.stream_key || '' %>" placeholder="Stream Key" class="fb-stream-key-ska">
+                <span class="cookie-status <%= fb.hasToken && fb.hasStreamKey ? 'cookie-ok' : 'cookie-missing' %>">
+                  <%= fb.hasToken && fb.hasStreamKey ? 'Key + Token OK' : !fb.hasStreamKey ? 'No key' : 'No token' %>
+                </span>
+              </div>
               <div class="fb-api-fields" style="<%= fb.mode === 'api' ? '' : 'display:none' %>">
                 <input type="text" value="<%= fb.page_id %>" placeholder="Page ID" class="fb-page-id">
                 <span class="cookie-status <%= fb.hasToken ? 'cookie-ok' : 'cookie-missing' %>">
                   <%= fb.hasToken ? 'Token OK' : 'No token' %>
                 </span>
               </div>
-              <div class="fb-sk-fields" style="<%= fb.mode === 'stream_key' ? '' : 'display:none' %>">
+              <div class="fb-sk-fields" style="<%= (fb.mode === 'stream_key') ? '' : 'display:none' %>">
                 <input type="text" value="<%= fb.rtmp_url || 'rtmps://live-api-s.facebook.com:443/rtmp/' %>" placeholder="RTMP URL" class="fb-rtmp-url">
                 <input type="text" value="<%= fb.stream_key || '' %>" placeholder="Stream Key" class="fb-stream-key">
                 <span class="cookie-status <%= fb.hasStreamKey ? 'cookie-ok' : 'cookie-missing' %>">
@@ -97,7 +106,7 @@
             </div>
             <div class="config-actions">
               <button class="btn btn-sm btn-primary" onclick="saveFb(this)">Salva</button>
-              <button class="btn btn-sm fb-token-btn" onclick="showTokenUpload(<%= fb.id %>)" style="<%= fb.mode === 'api' ? '' : 'display:none' %>">Token</button>
+              <button class="btn btn-sm fb-token-btn" onclick="showTokenUpload(<%= fb.id %>)" style="<%= (fb.mode === 'api' || fb.mode === 'stream_key_auto') ? '' : 'display:none' %>">Token</button>
               <button class="btn btn-sm fb-cookie-btn" onclick="showFbCookieUpload(<%= fb.id %>)" style="<%= fb.mode === 'cookie' ? '' : 'display:none' %>">Cookie</button>
               <button class="btn btn-sm btn-danger" onclick="deleteFb(<%= fb.id %>)">X</button>
             </div>

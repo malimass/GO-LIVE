@@ -116,6 +116,7 @@ function toggleFbMode(select) {
   const mode = select.value;
   const apiFields = row.querySelector('.fb-api-fields');
   const skFields = row.querySelector('.fb-sk-fields');
+  const skaFields = row.querySelector('.fb-ska-fields');
   const tokenBtn = row.querySelector('.fb-token-btn');
 
   const cookieFields = row.querySelector('.fb-cookie-fields');
@@ -123,8 +124,9 @@ function toggleFbMode(select) {
 
   if (apiFields) apiFields.style.display = mode === 'api' ? '' : 'none';
   if (skFields) skFields.style.display = mode === 'stream_key' ? '' : 'none';
+  if (skaFields) skaFields.style.display = mode === 'stream_key_auto' ? '' : 'none';
   if (cookieFields) cookieFields.style.display = mode === 'cookie' ? '' : 'none';
-  if (tokenBtn) tokenBtn.style.display = mode === 'api' ? '' : 'none';
+  if (tokenBtn) tokenBtn.style.display = (mode === 'api' || mode === 'stream_key_auto') ? '' : 'none';
   if (cookieBtn) cookieBtn.style.display = mode === 'cookie' ? '' : 'none';
 }
 
@@ -134,19 +136,26 @@ function addFbRow() {
   const row = document.createElement('div');
   row.className = 'config-row';
   row.dataset.id = '';
-  row.dataset.mode = 'cookie';
+  row.dataset.mode = 'stream_key_auto';
   row.innerHTML = `
     <div class="config-fields">
       <input type="text" placeholder="Nome (es. Pagina 1)" class="fb-name">
       <select class="fb-mode" onchange="toggleFbMode(this)">
-        <option value="cookie" selected>Cookie (auto)</option>
-        <option value="stream_key">Stream Key</option>
+        <option value="stream_key_auto" selected>Stream Key + Auto</option>
+        <option value="stream_key">Stream Key (manuale)</option>
+        <option value="cookie">Cookie (auto)</option>
         <option value="api">Graph API</option>
       </select>
       <input type="text" value="LIVE" placeholder="Titolo Live" class="fb-title">
-      <input type="text" placeholder="Descrizione Live" class="fb-description">
-      <div class="fb-cookie-fields">
+      <div class="fb-ska-fields">
+        <input type="text" placeholder="Page ID" class="fb-page-id-ska">
+        <input type="text" value="rtmps://live-api-s.facebook.com:443/rtmp/" placeholder="RTMP URL" class="fb-rtmp-url-ska">
+        <input type="text" placeholder="Stream Key" class="fb-stream-key-ska">
+        <span class="cookie-status cookie-missing">No key</span>
+      </div>
+      <div class="fb-cookie-fields" style="display:none">
         <input type="text" placeholder="Page ID" class="fb-page-id-cookie">
+        <input type="text" placeholder="Descrizione Live" class="fb-description">
         <span class="cookie-status cookie-missing">No cookie</span>
       </div>
       <div class="fb-api-fields" style="display:none">
@@ -184,6 +193,18 @@ function saveFb(btn) {
   if (mode === 'stream_key') {
     body.rtmpUrl = row.querySelector('.fb-rtmp-url') ? row.querySelector('.fb-rtmp-url').value.trim() : '';
     body.streamKey = row.querySelector('.fb-stream-key') ? row.querySelector('.fb-stream-key').value.trim() : '';
+    if (!body.streamKey) {
+      alert('Stream Key è obbligatoria');
+      return;
+    }
+  } else if (mode === 'stream_key_auto') {
+    body.pageId = row.querySelector('.fb-page-id-ska') ? row.querySelector('.fb-page-id-ska').value.trim() : '';
+    body.rtmpUrl = row.querySelector('.fb-rtmp-url-ska') ? row.querySelector('.fb-rtmp-url-ska').value.trim() : '';
+    body.streamKey = row.querySelector('.fb-stream-key-ska') ? row.querySelector('.fb-stream-key-ska').value.trim() : '';
+    if (!body.pageId) {
+      alert('Page ID è obbligatorio');
+      return;
+    }
     if (!body.streamKey) {
       alert('Stream Key è obbligatoria');
       return;
@@ -250,13 +271,23 @@ function uploadToken() {
   // Get current row data to send full update
   const row = document.querySelector(`.config-row[data-id="${accountId}"]`);
   const name = row.querySelector('.fb-name').value.trim();
-  const pageId = row.querySelector('.fb-page-id').value.trim();
+  const mode = row.querySelector('.fb-mode') ? row.querySelector('.fb-mode').value : 'api';
+  const pageIdEl = row.querySelector('.fb-page-id-ska') || row.querySelector('.fb-page-id');
+  const pageId = pageIdEl ? pageIdEl.value.trim() : '';
   const liveTitle = row.querySelector('.fb-title') ? row.querySelector('.fb-title').value.trim() : 'LIVE';
+
+  const body = { id: parseInt(accountId), name, mode, pageId, pageAccessToken: token, liveTitle };
+
+  // For stream_key_auto, also send stream key data
+  if (mode === 'stream_key_auto') {
+    body.rtmpUrl = row.querySelector('.fb-rtmp-url-ska') ? row.querySelector('.fb-rtmp-url-ska').value.trim() : '';
+    body.streamKey = row.querySelector('.fb-stream-key-ska') ? row.querySelector('.fb-stream-key-ska').value.trim() : '';
+  }
 
   fetch('/api/config/facebook', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: parseInt(accountId), name, pageId, pageAccessToken: token, liveTitle }),
+    body: JSON.stringify(body),
   })
     .then((res) => res.json())
     .then((data) => {

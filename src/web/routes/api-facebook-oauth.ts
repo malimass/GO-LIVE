@@ -170,13 +170,19 @@ export function createFacebookOAuthRouter(config: Config): Router {
       for (const page of pages) {
         const existingId = existingPageIds.get(page.id);
 
+        // If destination already exists, update token but keep mode; otherwise default to stream_key_auto
+        const existingRow = existingId ? existing.find((d) => d.id === existingId) : null;
+        const destMode = existingRow ? existingRow.mode : 'stream_key_auto';
+
         upsertFacebook({
           id: existingId || null,
           name: page.name,
-          mode: 'api',
+          mode: destMode as any,
           pageId: page.id,
           pageAccessToken: page.access_token,
-          liveTitle: 'LIVE',
+          liveTitle: existingRow?.live_title || 'LIVE',
+          streamKey: existingRow?.stream_key || '',
+          rtmpUrl: existingRow?.rtmp_url || 'rtmps://live-api-s.facebook.com:443/rtmp/',
         });
 
         if (existingId) {

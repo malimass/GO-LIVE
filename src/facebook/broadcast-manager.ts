@@ -77,6 +77,63 @@ export class FacebookBroadcastManager {
     return { url, key };
   }
 
+  /**
+   * Find a live video in PREVIEW status (created by permanent stream key)
+   * and transition it to LIVE_NOW.
+   */
+  async goLiveOnStreamKey(): Promise<void> {
+    logger.info(`[FB:${this.pageName}] Looking for preview live to auto-start...`);
+
+    // Fetch live videos in PREVIEW or SCHEDULED_UNPUBLISHED status
+    const params = new URLSearchParams({
+      source: 'owner',
+      broadcast_status: JSON.stringify(['PREVIEW', 'SCHEDULED_UNPUBLISHED']),
+      fields: 'id,title,status',
+      access_token: this.accessToken,
+    });
+
+    const response = await fetch(`${FB_GRAPH_URL}/${this.pageId}/live_videos?${params}`);
+
+    if (!response.ok) {
+      const text = await response.text();
+      logger.error(`[FB:${this.pageName}] Failed to fetch live videos: ${text.substring(0, 500)}`);
+      throw new Error(`Failed to fetch live videos for ${this.pageName}`);
+    }
+
+    const data = await response.json() as { data: Array<{ id: string; title: string; status: string }> };
+
+    if (!data.data || data.data.length === 0) {
+      logger.warn(`[FB:${this.pageName}] No preview live found — the stream key may not be active yet`);
+      return;
+    }
+
+    // Pick the most recent one (first in the list)
+    const liveVideo = data.data[0];
+    this.liveVideoId = liveVideo.id;
+
+    logger.info(`[FB:${this.pageName}] Found preview live (id: ${liveVideo.id}, status: ${liveVideo.status}), transitioning to LIVE_NOW...`);
+
+    // Transition to LIVE_NOW
+    const goLiveParams = new URLSearchParams({
+      status: 'LIVE_NOW',
+      access_token: this.accessToken,
+    });
+
+    const goLiveResp = await fetch(`${FB_GRAPH_URL}/${liveVideo.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: goLiveParams.toString(),
+    });
+
+    if (!goLiveResp.ok) {
+      const text = await goLiveResp.text();
+      logger.error(`[FB:${this.pageName}] Failed to go live: ${text.substring(0, 500)}`);
+      throw new Error(`Failed to transition to LIVE_NOW for ${this.pageName}`);
+    }
+
+    logger.info(`[FB:${this.pageName}] Auto-started! Live is now public (id: ${liveVideo.id})`);
+  }
+
   async endBroadcast(): Promise<void> {
     if (!this.liveVideoId) return;
 

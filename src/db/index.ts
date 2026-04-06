@@ -83,7 +83,7 @@ export interface FacebookRow {
   page_id: string;
   page_access_token: string;
   live_title: string;
-  mode: 'api' | 'stream_key' | 'cookie';
+  mode: 'api' | 'stream_key' | 'cookie' | 'stream_key_auto';
   cookies_enc: string | null;
   enabled: number;
 }
@@ -95,7 +95,7 @@ export function getFacebookDestinations(): FacebookRow[] {
 export interface UpsertFacebookParams {
   id?: number | null;
   name: string;
-  mode: 'api' | 'stream_key' | 'cookie';
+  mode: 'api' | 'stream_key' | 'cookie' | 'stream_key_auto';
   pageId?: string;
   pageAccessToken?: string;
   rtmpUrl?: string;
