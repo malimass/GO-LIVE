@@ -98,9 +98,8 @@ export class DistributionManager extends EventEmitter {
           });
 
           if (fb.mode === 'stream_key_auto') {
-            // Store a manager to auto-start and auto-end via API
+            // Store a manager to auto-start via API (no endBroadcast — FB auto-ends when stream stops)
             const manager = new FacebookBroadcastManager(fb.pageId, fb.name, fb.pageAccessToken, fb.liveTitle);
-            this.fbManagers.push(manager);
             this.fbAutoStartManagers.push(manager);
           }
         } else if (fb.mode === 'cookie') {
