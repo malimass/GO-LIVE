@@ -149,6 +149,7 @@ export class FacebookBroadcastManager {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params.toString(),
+        signal: AbortSignal.timeout(8000),
       });
 
       logger.info(`[FB:${this.pageName}] Live ended`);

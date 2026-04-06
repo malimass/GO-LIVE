@@ -244,27 +244,37 @@ export class DistributionManager extends EventEmitter {
     }
     this.processes = [];
 
-    // End all Facebook live broadcasts
-    for (const manager of this.fbManagers) {
-      try {
-        await manager.endBroadcast();
-      } catch (err) {
+    // End all Facebook live broadcasts (with 10s timeout each)
+    const fbEndPromises = this.fbManagers.map((manager) =>
+      Promise.race([
+        manager.endBroadcast(),
+        new Promise<void>((resolve) => setTimeout(() => {
+          logger.warn('Timeout ending FB live — skipping');
+          resolve();
+        }, 10000)),
+      ]).catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
         logger.error(`Error ending FB live: ${msg}`);
-      }
-    }
+      })
+    );
+    await Promise.all(fbEndPromises);
     this.fbManagers = [];
     this.fbAutoStartManagers = [];
 
-    // Close all Instagram sessions
-    for (const extractor of this.igExtractors) {
-      try {
-        await extractor.endLive();
-      } catch (err) {
+    // Close all Instagram sessions (with 10s timeout each)
+    const igEndPromises = this.igExtractors.map((extractor) =>
+      Promise.race([
+        extractor.endLive(),
+        new Promise<void>((resolve) => setTimeout(() => {
+          logger.warn('Timeout ending IG live — skipping');
+          resolve();
+        }, 10000)),
+      ]).catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
         logger.error(`Error ending IG live: ${msg}`);
-      }
-    }
+      })
+    );
+    await Promise.all(igEndPromises);
     this.igExtractors = [];
 
     this.emit('stopped');
