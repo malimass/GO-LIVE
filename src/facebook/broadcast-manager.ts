@@ -84,11 +84,11 @@ export class FacebookBroadcastManager {
   async goLiveOnStreamKey(): Promise<void> {
     logger.info(`[FB:${this.pageName}] Looking for preview live to auto-start...`);
 
-    // Fetch live videos in PREVIEW or SCHEDULED_UNPUBLISHED status
+    // Fetch live videos in UNPUBLISHED status, with creation time to pick the right one
     const params = new URLSearchParams({
       source: 'owner',
-      broadcast_status: JSON.stringify(['UNPUBLISHED', 'SCHEDULED_UNPUBLISHED']),
-      fields: 'id,title,status',
+      broadcast_status: JSON.stringify(['UNPUBLISHED']),
+      fields: 'id,title,status,creation_time',
       access_token: this.accessToken,
     });
 
@@ -100,16 +100,32 @@ export class FacebookBroadcastManager {
       throw new Error(`Failed to fetch live videos for ${this.pageName}`);
     }
 
-    const data = await response.json() as { data: Array<{ id: string; title: string; status: string }> };
+    const data = await response.json() as { data: Array<{ id: string; title: string; status: string; creation_time: string }> };
 
     if (!data.data || data.data.length === 0) {
       logger.warn(`[FB:${this.pageName}] No preview live found — the stream key may not be active yet`);
       return;
     }
 
-    // Pick the most recent one (first in the list)
-    const liveVideo = data.data[0];
+    // Filter: only lives created in the last 2 minutes (to avoid stale ones from previous attempts)
+    const now = Date.now();
+    const recentLives = data.data.filter((lv) => {
+      const created = new Date(lv.creation_time).getTime();
+      return (now - created) < 120000; // 2 minutes
+    });
+
+    if (recentLives.length === 0) {
+      logger.warn(`[FB:${this.pageName}] Found ${data.data.length} UNPUBLISHED lives but none created recently — skipping`);
+      return;
+    }
+
+    // Pick the most recently created one
+    const liveVideo = recentLives.sort((a, b) =>
+      new Date(b.creation_time).getTime() - new Date(a.creation_time).getTime()
+    )[0];
     this.liveVideoId = liveVideo.id;
+
+    logger.info(`[FB:${this.pageName}] Found ${data.data.length} UNPUBLISHED lives, picked most recent (id: ${liveVideo.id}, created: ${liveVideo.creation_time})`);
 
     logger.info(`[FB:${this.pageName}] Found preview live (id: ${liveVideo.id}, status: ${liveVideo.status}), transitioning to LIVE_NOW...`);
 
