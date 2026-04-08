@@ -12,7 +12,7 @@ RUN npx tsc
 FROM node:20-slim
 WORKDIR /app
 
-# Install build tools for native modules (better-sqlite3), wget for ffmpeg, and proxychains for SOCKS5 proxy
+# Install build tools for native modules (better-sqlite3), wget for ffmpeg, proxychains + dynamic ffmpeg for SOCKS5 proxy
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     xz-utils \
     proxychains4 \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install static ffmpeg built with OpenSSL (GnuTLS version has TLS issues with Facebook RTMPS)

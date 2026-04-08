@@ -69,8 +69,9 @@ export class FfmpegProcess extends EventEmitter {
     const useProxy = this.destination.useProxy && proxyUrl;
 
     if (useProxy) {
+      // Use dynamic ffmpeg (/usr/bin/ffmpeg) with proxychains — static binary ignores LD_PRELOAD
       logger.info(`[${this.destination.name}] Starting ffmpeg relay (via proxy)`);
-      this.process = spawn('proxychains4', ['-q', '-f', '/app/proxychains.conf', 'ffmpeg', ...args], { stdio: ['ignore', 'ignore', 'pipe'] });
+      this.process = spawn('proxychains4', ['-q', '-f', '/app/proxychains.conf', '/usr/bin/ffmpeg', ...args], { stdio: ['ignore', 'ignore', 'pipe'] });
     } else {
       logger.info(`[${this.destination.name}] Starting ffmpeg relay`);
       this.process = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
