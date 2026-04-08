@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
+import fs from 'fs';
 import { logger } from '../logging/logger.js';
 
 export interface FfmpegHealth {
@@ -51,32 +52,57 @@ export class FfmpegProcess extends EventEmitter {
       return;
     }
 
-    let outputUrl = `${this.destination.rtmpUrl}${this.destination.streamKey}`;
+    const outputUrl = `${this.destination.rtmpUrl}${this.destination.streamKey}`;
+    const proxyHost = process.env.FB_PROXY_HOST;
+    const useProxy = this.destination.useProxy && !!proxyHost;
 
-    // If proxy is enabled, route through SSH tunnel (localhost:1443 -> fb-proxy -> Facebook)
-    const useProxy = this.destination.useProxy && !!process.env.FB_PROXY_HOST;
+    // For proxied destinations: run ffmpeg on remote server via SSH (different outbound IP)
+    // The remote ffmpeg reads from go-live's public RTMP and outputs directly to Facebook
     if (useProxy) {
-      outputUrl = outputUrl.replace('live-api-s.facebook.com:443', '127.0.0.1:1443');
-    }
+      const publicIp = process.env.PUBLIC_IP || '134.122.70.74';
+      const remoteInput = this.inputUrl.replace('127.0.0.1', publicIp);
+      // Build remote command as single string to avoid SSH argument escaping issues
+      const remoteCmd = [
+        'ffmpeg',
+        '-fflags nobuffer',
+        '-flags low_delay',
+        '-rw_timeout 10000000',
+        `-i '${remoteInput}'`,
+        '-c:v copy',
+        '-c:a copy',
+        '-f flv',
+        '-flvflags no_duration_filesize',
+        `'${outputUrl}'`,
+      ].join(' ');
 
-    const args = [
-      '-fflags', 'nobuffer',
-      '-flags', 'low_delay',
-      '-rw_timeout', '10000000',
-      '-i', this.inputUrl,
-      '-c:v', 'copy',
-      '-c:a', 'copy',
-      '-f', 'flv',
-      '-flvflags', 'no_duration_filesize',
-      outputUrl,
-    ];
+      // Find SSH key
+      const sshKey = ['/app/.ssh/id_ed25519', '/app/.ssh/id_rsa']
+        .find(k => { try { fs.accessSync(k); return true; } catch { return false; } }) || '/app/.ssh/id_ed25519';
 
-    if (useProxy) {
-      logger.info(`[${this.destination.name}] Starting ffmpeg relay (via proxy tunnel)`);
+      logger.info(`[${this.destination.name}] Starting remote ffmpeg relay on ${proxyHost}`);
+      this.process = spawn('ssh', [
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'UserKnownHostsFile=/dev/null',
+        '-i', sshKey,
+        `root@${proxyHost}`,
+        remoteCmd,
+      ], { stdio: ['ignore', 'ignore', 'pipe'] });
     } else {
+      const args = [
+        '-fflags', 'nobuffer',
+        '-flags', 'low_delay',
+        '-rw_timeout', '10000000',
+        '-i', this.inputUrl,
+        '-c:v', 'copy',
+        '-c:a', 'copy',
+        '-f', 'flv',
+        '-flvflags', 'no_duration_filesize',
+        outputUrl,
+      ];
+
       logger.info(`[${this.destination.name}] Starting ffmpeg relay`);
+      this.process = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
     }
-    this.process = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
     this._status = 'running';
     this.startTime = Date.now();
 
