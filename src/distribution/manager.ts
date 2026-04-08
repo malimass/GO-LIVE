@@ -90,11 +90,13 @@ export class DistributionManager extends EventEmitter {
       try {
         if (fb.mode === 'stream_key' || fb.mode === 'stream_key_auto') {
           // Static stream key — send video via permanent key
-          logger.info(`[FB:${fb.name}] Using permanent stream key${fb.mode === 'stream_key_auto' ? ' (auto-start enabled)' : ''}`);
+          const useProxy = fbDestinations.length > 0 && !!process.env.SOCKS5_PROXY;
+          logger.info(`[FB:${fb.name}] Using permanent stream key${fb.mode === 'stream_key_auto' ? ' (auto-start enabled)' : ''}${useProxy ? ' (via proxy)' : ''}`);
           fbDestinations.push({
             name: fb.name,
             rtmpUrl: fb.rtmpUrl,
             streamKey: fb.streamKey,
+            useProxy,
           });
 
           if (fb.mode === 'stream_key_auto') {
@@ -113,6 +115,7 @@ export class DistributionManager extends EventEmitter {
             name: fb.name,
             rtmpUrl: result.url,
             streamKey: result.key,
+            useProxy: fbDestinations.length > 0 && !!process.env.SOCKS5_PROXY,
           });
 
           this.fbManagers.push(broadcaster as any);
@@ -126,6 +129,7 @@ export class DistributionManager extends EventEmitter {
             name: fb.name,
             rtmpUrl: result.url,
             streamKey: result.key,
+            useProxy: fbDestinations.length > 0 && !!process.env.SOCKS5_PROXY,
           });
 
           this.fbManagers.push(manager);

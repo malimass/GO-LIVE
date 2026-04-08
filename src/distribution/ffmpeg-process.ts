@@ -13,6 +13,7 @@ export interface DestinationConfig {
   name: string;
   rtmpUrl: string;
   streamKey: string;
+  useProxy?: boolean;
 }
 
 export type ProcessStatus = 'idle' | 'running' | 'error' | 'stopped';
@@ -64,9 +65,16 @@ export class FfmpegProcess extends EventEmitter {
       outputUrl,
     ];
 
-    logger.info(`[${this.destination.name}] Starting ffmpeg relay`);
+    const proxyUrl = process.env.SOCKS5_PROXY;
+    const useProxy = this.destination.useProxy && proxyUrl;
 
-    this.process = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    if (useProxy) {
+      logger.info(`[${this.destination.name}] Starting ffmpeg relay (via proxy)`);
+      this.process = spawn('proxychains4', ['-q', '-f', '/app/proxychains.conf', 'ffmpeg', ...args], { stdio: ['ignore', 'ignore', 'pipe'] });
+    } else {
+      logger.info(`[${this.destination.name}] Starting ffmpeg relay`);
+      this.process = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    }
     this._status = 'running';
     this.startTime = Date.now();
 

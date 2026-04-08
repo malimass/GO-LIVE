@@ -12,7 +12,7 @@ RUN npx tsc
 FROM node:20-slim
 WORKDIR /app
 
-# Install build tools for native modules (better-sqlite3) and wget for ffmpeg
+# Install build tools for native modules (better-sqlite3), wget for ffmpeg, and proxychains for SOCKS5 proxy
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
     xz-utils \
+    proxychains4 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install static ffmpeg built with OpenSSL (GnuTLS version has TLS issues with Facebook RTMPS)
@@ -36,9 +37,11 @@ RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/src/web/views ./dist/web/views
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 RUN mkdir -p logs data
 
 EXPOSE 1935 3000
 
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
