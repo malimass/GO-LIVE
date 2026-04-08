@@ -51,7 +51,13 @@ export class FfmpegProcess extends EventEmitter {
       return;
     }
 
-    const outputUrl = `${this.destination.rtmpUrl}${this.destination.streamKey}`;
+    let outputUrl = `${this.destination.rtmpUrl}${this.destination.streamKey}`;
+
+    // If proxy is enabled, route through SSH tunnel (localhost:1443 -> fb-proxy -> Facebook)
+    const useProxy = this.destination.useProxy && !!process.env.FB_PROXY_HOST;
+    if (useProxy) {
+      outputUrl = outputUrl.replace('live-api-s.facebook.com:443', '127.0.0.1:1443');
+    }
 
     const args = [
       '-fflags', 'nobuffer',
@@ -65,17 +71,12 @@ export class FfmpegProcess extends EventEmitter {
       outputUrl,
     ];
 
-    const proxyUrl = process.env.SOCKS5_PROXY;
-    const useProxy = this.destination.useProxy && proxyUrl;
-
     if (useProxy) {
-      // Use dynamic ffmpeg (/usr/bin/ffmpeg) with proxychains — static binary ignores LD_PRELOAD
-      logger.info(`[${this.destination.name}] Starting ffmpeg relay (via proxy)`);
-      this.process = spawn('proxychains4', ['-q', '-f', '/app/proxychains.conf', '/usr/bin/ffmpeg', ...args], { stdio: ['ignore', 'ignore', 'pipe'] });
+      logger.info(`[${this.destination.name}] Starting ffmpeg relay (via proxy tunnel)`);
     } else {
       logger.info(`[${this.destination.name}] Starting ffmpeg relay`);
-      this.process = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
     }
+    this.process = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
     this._status = 'running';
     this.startTime = Date.now();
 
