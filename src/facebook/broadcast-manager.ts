@@ -107,50 +107,11 @@ export class FacebookBroadcastManager {
       return;
     }
 
-    // Filter: only lives created in the last 2 minutes (to avoid stale ones from previous attempts)
-    const now = Date.now();
-    let recentLives = data.data.filter((lv) => {
-      const created = new Date(lv.creation_time).getTime();
-      return (now - created) < 120000; // 2 minutes
-    });
-
-    if (recentLives.length === 0) {
-      // No recent live found — create one automatically via API
-      logger.info(`[FB:${this.pageName}] No recent UNPUBLISHED live found, creating one via API...`);
-      try {
-        const createParams = new URLSearchParams({
-          title: this.title,
-          status: 'LIVE_NOW',
-          access_token: this.accessToken,
-        });
-
-        const createResp = await fetch(`${FB_GRAPH_URL}/${this.pageId}/live_videos`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: createParams.toString(),
-        });
-
-        if (createResp.ok) {
-          const createData = await createResp.json() as { id: string };
-          this.liveVideoId = createData.id;
-          logger.info(`[FB:${this.pageName}] Created and auto-started live (id: ${createData.id})`);
-          return;
-        } else {
-          const errText = await createResp.text();
-          logger.error(`[FB:${this.pageName}] Failed to create live: ${errText.substring(0, 500)}`);
-          return;
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        logger.error(`[FB:${this.pageName}] Error creating live: ${msg}`);
-        return;
-      }
-    }
-
-    // Pick the most recently created one
-    const liveVideo = recentLives.sort((a, b) =>
+    // Pick the most recently created UNPUBLISHED live (no time filter — the stream key creates it)
+    const sorted = data.data.sort((a, b) =>
       new Date(b.creation_time).getTime() - new Date(a.creation_time).getTime()
-    )[0];
+    );
+    const liveVideo = sorted[0];
     this.liveVideoId = liveVideo.id;
 
     logger.info(`[FB:${this.pageName}] Found ${data.data.length} UNPUBLISHED lives, picked most recent (id: ${liveVideo.id}, created: ${liveVideo.creation_time})`);
