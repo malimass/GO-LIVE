@@ -33,13 +33,15 @@
     "multer": "^2.1.1",
     "node-media-server": "^2.7.1",
     "playwright": "^1.50.1",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.1",
     "@types/node": "^22.13.5",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "vitest": "^3.0.7"

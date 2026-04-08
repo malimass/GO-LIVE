@@ -11,6 +11,8 @@ import { createApiStreamRouter } from './routes/api-stream.js';
 import { createApiLogsRouter } from './routes/api-logs.js';
 import { createApiOverlayRouter } from './routes/api-overlay.js';
 import { createFacebookOAuthRouter } from './routes/api-facebook-oauth.js';
+import { createApiPhoneStreamRouter } from './routes/api-phone-stream.js';
+import { PhoneIngestManager } from './phone-ingest.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,8 +37,9 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
   res.redirect('/login');
 }
 
-export function createWebApp(config: Config, distribution: DistributionManager): express.Application {
+export function createWebApp(config: Config, distribution: DistributionManager): { app: express.Application; phoneIngest: PhoneIngestManager } {
   const app = express();
+  const phoneIngest = new PhoneIngestManager(config, distribution);
 
   // Trust proxy (nginx HTTPS)
   app.set('trust proxy', 1);
@@ -90,6 +93,11 @@ export function createWebApp(config: Config, distribution: DistributionManager):
   app.use('/api/logs', createApiLogsRouter());
   app.use('/api/overlay', createApiOverlayRouter());
   app.use('/api/facebook-oauth', createFacebookOAuthRouter(config));
+  app.use('/api/phone-stream', createApiPhoneStreamRouter(phoneIngest));
 
-  return app;
+  app.get('/phone', (req, res) => {
+    res.render('phone-stream', { ingestKey: config.rtmpIngestKey });
+  });
+
+  return { app, phoneIngest };
 }

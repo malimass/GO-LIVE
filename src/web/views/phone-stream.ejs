@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>GO-LIVE Phone</title>
+  <link rel="stylesheet" href="/phone-stream.css">
+</head>
+<body>
+  <video id="preview" autoplay playsinline muted></video>
+
+  <div id="status-bar">
+    <span id="status-dot"></span>
+    <span id="status-text">Pronto</span>
+    <span id="stream-timer" class="hidden"></span>
+    <span id="health-info" class="hidden"></span>
+  </div>
+
+  <div id="controls">
+    <button id="btn-flip" class="ctrl-btn" title="Cambia camera">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+        <path d="M20 5h-3.17L15.41 3.59A2 2 0 0014 3h-4a2 2 0 00-1.41.59L7.17 5H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V7a2 2 0 00-2-2zm-8 13a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/>
+      </svg>
+    </button>
+    <button id="btn-stream" class="ctrl-btn ctrl-btn-main" data-state="idle">
+      <span class="btn-label">AVVIA</span>
+    </button>
+    <a href="/" id="btn-dashboard" class="ctrl-btn" title="Dashboard">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+        <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+      </svg>
+    </a>
+  </div>
+
+  <div id="error-overlay" class="hidden">
+    <p id="error-message"></p>
+    <button class="ctrl-btn" onclick="dismissError()">OK</button>
+  </div>
+
+  <div id="wake-warning" class="hidden">
+    Non mettere il telefono in standby durante lo streaming
+  </div>
+
+  <script>
+    window.__INGEST_TOKEN__ = '<%= ingestKey %>';
+  </script>
+  <script src="/phone-stream.js"></script>
+</body>
+</html>

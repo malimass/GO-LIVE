@@ -18,14 +18,18 @@ async function main() {
   logger.info(`RTMP server listening on port ${config.rtmpPort}`);
 
   // Start web dashboard
-  const app = createWebApp(config, distributionManager);
-  app.listen(config.port, () => {
+  const { app, phoneIngest } = createWebApp(config, distributionManager);
+  const httpServer = app.listen(config.port, () => {
     logger.info(`Dashboard available at http://localhost:${config.port}`);
   });
+
+  // Attach phone ingest WebSocket to HTTP server
+  phoneIngest.attach(httpServer);
 
   // Graceful shutdown
   const shutdown = async () => {
     logger.info('Shutting down...');
+    phoneIngest.disconnect();
     await distributionManager.stopAll();
     rtmpServer.stop();
     process.exit(0);

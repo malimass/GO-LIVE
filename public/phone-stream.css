@@ -1,0 +1,198 @@
+:root {
+  --bg: #0f1117;
+  --text: #e4e6ed;
+  --text-muted: #6b7280;
+  --primary: #6366f1;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --warning: #f59e0b;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Video preview — full viewport */
+#preview {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+/* Status bar — top */
+#status-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+  z-index: 10;
+  font-size: 0.85rem;
+}
+
+#status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+#status-dot.idle { background: var(--text-muted); }
+#status-dot.connecting { background: var(--warning); animation: pulse 1s infinite; }
+#status-dot.streaming { background: var(--danger); animation: pulse 1.5s infinite; }
+#status-dot.error { background: var(--danger); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+#stream-timer {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+#health-info {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Controls — bottom */
+#controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2rem;
+  padding: 1.5rem;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+  z-index: 10;
+}
+
+.ctrl-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.ctrl-btn:active {
+  transform: scale(0.92);
+  background: rgba(255,255,255,0.2);
+}
+
+/* Main stream button */
+.ctrl-btn-main {
+  width: 72px;
+  height: 72px;
+  border: 3px solid #fff;
+  background: rgba(255,255,255,0.15);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.ctrl-btn-main[data-state="idle"] {
+  border-color: #fff;
+}
+
+.ctrl-btn-main[data-state="connecting"] {
+  border-color: var(--warning);
+  animation: pulse 1s infinite;
+}
+
+.ctrl-btn-main[data-state="streaming"] {
+  border-color: var(--danger);
+  background: rgba(239,68,68,0.3);
+}
+
+.ctrl-btn-main[data-state="streaming"] .btn-label::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background: var(--danger);
+  border-radius: 2px;
+  margin-right: 0.25rem;
+  vertical-align: middle;
+}
+
+/* Error overlay */
+#error-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  z-index: 100;
+  padding: 2rem;
+  text-align: center;
+}
+
+#error-overlay p {
+  font-size: 1.1rem;
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+/* Wake warning */
+#wake-warning {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.9);
+  color: var(--warning);
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  text-align: center;
+  z-index: 50;
+  max-width: 80vw;
+  animation: fadeOut 3s forwards;
+  animation-delay: 2s;
+}
+
+@keyframes fadeOut {
+  to { opacity: 0; pointer-events: none; }
+}
+
+.hidden {
+  display: none !important;
+}
