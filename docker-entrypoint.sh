@@ -10,6 +10,10 @@ if [ -n "$SOCKS5_PROXY" ]; then
 strict_chain
 quiet_mode
 proxy_dns
+localnet 127.0.0.0/255.0.0.0
+localnet 10.0.0.0/255.0.0.0
+localnet 172.16.0.0/255.240.0.0
+localnet 192.168.0.0/255.255.0.0
 tcp_read_time_out 15000
 tcp_connect_time_out 8000
 
